@@ -1,0 +1,20 @@
+# Max and operating-system state
+*.maxsnap
+*.maxproj.user
+.DS_Store
+
+# Generated exports
+examples/*.musicxml
+examples/*.xml
+examples/*.mid
+examples/*.midi
+examples/*.wav
+examples/*.aif
+examples/*.aiff
+
+# The supplied research corpus is kept in the local project bundle, but is
+# not committed until redistribution rights and repository visibility are set.
+research/**/*.pdf
+
+# OCR and render intermediates
+tmp/
