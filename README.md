@@ -9,7 +9,6 @@ model also draws on Webern's lectures, Hans Peter Reutter's analysis, the
 monograph by Valentina Kholopova and Yuri Kholopov, and recent scholarship on
 Klangfarbenmelodie.
 
-![Presentation Mode interface](docs/webernPersona-ui-preview.png)
 
 ## Scope
 
