@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<score-partwise version="4.0">
+  <part-list><score-part id="P1"><part-name>Flute</part-name></score-part></part-list>
+  <part id="P1"><measure number="1">
+    <direction><direction-type><words>__WEBERN_SLUR_START_7</words></direction-type></direction>
+    <note><pitch><step>C</step><octave>5</octave></pitch><duration>1</duration></note>
+    <direction><direction-type><words>__WEBERN_SLUR_STOP_7</words></direction-type></direction>
+    <note><pitch><step>D</step><octave>5</octave></pitch><duration>1</duration><notations><articulations><staccato/></articulations></notations></note>
+  </measure></part>
+</score-partwise>

@@ -1,4 +1,4 @@
-# Проверка версии 4 в Max
+# Проверка версии 5 в Max
 
 Автоматические тесты проверяют JS и граф patchcord. Этот список нужен для
 фактического поведения `bach` 0.8.2.0 beta/0.8.3.
@@ -25,7 +25,7 @@ Seed задаёт последовательность, но не замораж
 1. Нажать **Build Score** без предварительного Generate.
 2. Должны последовать `generated`, `quantize_requested`,
    `score_data_received`, затем
-   `score_ready dynamics … articulations … annotations … tempi …`.
+   `score_ready dynamics … articulations … annotations … phrases … tempi … meters …`.
 3. Перерисовать обе кривые и снова нажать Build: форма должна измениться.
 4. Ничего не менять и нажать Build ещё раз: появится новый ROW и новый score.
 5. Не должно быть `bach.score: unknown message: D`; это ошибка старой v3.0.0.
@@ -63,7 +63,9 @@ Seed задаёт последовательность, но не замораж
 2. Поставить в самом верху — ожидается `fff`.
 3. Нарисовать низко → высоко → низко: ключевые отметки и вилочки должны
    следовать этой драматургии по времени.
-4. Повторить в профиле I: пользовательский подъём к fff теперь разрешён;
+4. Ни одна вилочка не должна тянуться через паузу или несколько тактов: она
+   завершается внутри одной короткой фразы.
+5. Повторить в профиле I: пользовательский подъём к fff теперь разрешён;
    профиль задаёт исходную, а не принудительно ограниченную кривую.
 
 ## 7. Оформление
@@ -71,14 +73,17 @@ Seed задаёт последовательность, но не замораж
 На score должны встречаться только контекстно оправданные:
 
 - `staccato/staccatissimo`, accent, portato, trill, tremolo;
-- `dolce`, `dolcissimo`, `espress.`, `molto espr.`, `deutlich`;
-- `mit Dämpfer`, `Flatterzunge`, `col legno`, `mit Schwammschlägel`;
+- `äußerst zart`, `mit zartestem Ausdruck`, `innig`, `ausdrucksvoll`,
+  `flüchtig`, `deutlich`, `hervortretend`, `heftig bewegt`;
+- `mit Dämpfer/Dämpfer ab`, `Flatterzunge/ordinario`, `pizz./arco`,
+  `col legno`, `mit Schwammschlägel`;
 - `wie ein Hauch`, `kaum hörbar`, `verklingend`;
 - изменения темпа и `zögernd/a tempo/drängend/rit./rasch/ruhig`.
 
-Длинные длительности через тактовую черту должны дать нативные ties.
-Фразовые slur программно не создаются: публичный API bach 0.8.2/0.8.3 их не
-поддерживает. Связность показывают группировка, portato/legato-ремарки и ties.
+Проверить запреты: двойных нот нет у духовых; mute отсутствует у флейты,
+кларнета, челесты, арфы и глокеншпиля; pizz./arco встречается только у
+струнных. Штрих внутри одного короткого раздела устойчив, а не меняется на
+каждой ноте.
 
 ## 8. MusicXML
 
@@ -87,11 +92,13 @@ Seed задаёт последовательность, но не замораж
 
 ```sh
 node tools/check_musicxml.js examples/<имя>.musicxml
+node tools/add_phrase_slurs.js examples/<имя>.musicxml
 ```
 
 3. Импортировать в MuseScore/Dorico.
-4. Проверить десять партий, ноты/паузы/ties, динамику, вилочки, штрихи, темпы
-   и текстовые directions.
+4. Импортировать файл `<имя>-with-slurs.musicxml` и проверить десять партий,
+   ноты/паузы/ties, короткие вилочки, фразировочные лиги, штрихи, размеры,
+   темпы и текстовые directions.
 
 Если знак есть в score, но пропал в XML, сохранить экспорт и Max Console:
 это отделяет ошибку адресации slot от ограничения экспортёра.

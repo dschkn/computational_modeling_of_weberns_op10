@@ -33,17 +33,38 @@ var PITCH_NAMES = ["C", "C#", "D", "Eb", "E", "F", "F#", "G", "Ab", "A", "Bb", "
  * op.10 uses brilliance as colour, not a permanent ledger-line stunt.
  */
 var INSTRUMENTS = [
-    { name: "Flute", family: 0, low: 60, high: 93, comfortLow: 67, comfortHigh: 86 },
-    { name: "Clarinet", family: 0, low: 50, high: 91, comfortLow: 55, comfortHigh: 82 },
-    { name: "Trumpet", family: 1, low: 54, high: 82, comfortLow: 58, comfortHigh: 76 },
-    { name: "Trombone", family: 1, low: 40, high: 67, comfortLow: 45, comfortHigh: 62 },
-    { name: "Celesta", family: 2, low: 48, high: 96, comfortLow: 55, comfortHigh: 88 },
-    { name: "Harp", family: 2, low: 36, high: 96, comfortLow: 43, comfortHigh: 88 },
-    { name: "Glockenspiel", family: 2, low: 67, high: 91, comfortLow: 72, comfortHigh: 86 },
-    { name: "Violin", family: 3, low: 55, high: 96, comfortLow: 60, comfortHigh: 88 },
-    { name: "Viola", family: 3, low: 48, high: 82, comfortLow: 53, comfortHigh: 74 },
-    { name: "Violoncello", family: 3, low: 36, high: 76, comfortLow: 43, comfortHigh: 67 }
+    { name: "Flute", family: 0, monophonic: 1, low: 60, high: 93, comfortLow: 67, comfortHigh: 86 },
+    { name: "Clarinet", family: 0, monophonic: 1, low: 50, high: 91, comfortLow: 55, comfortHigh: 82 },
+    { name: "Trumpet", family: 1, monophonic: 1, low: 54, high: 82, comfortLow: 58, comfortHigh: 76 },
+    { name: "Trombone", family: 1, monophonic: 1, low: 40, high: 67, comfortLow: 45, comfortHigh: 62 },
+    { name: "Celesta", family: 2, monophonic: 0, low: 48, high: 96, comfortLow: 55, comfortHigh: 88 },
+    { name: "Harp", family: 2, monophonic: 0, low: 36, high: 96, comfortLow: 43, comfortHigh: 88 },
+    { name: "Glockenspiel", family: 2, monophonic: 1, low: 67, high: 91, comfortLow: 72, comfortHigh: 86 },
+    { name: "Violin", family: 3, monophonic: 0, low: 55, high: 96, comfortLow: 60, comfortHigh: 88 },
+    { name: "Viola", family: 3, monophonic: 0, low: 48, high: 82, comfortLow: 53, comfortHigh: 74 },
+    { name: "Violoncello", family: 3, monophonic: 0, low: 36, high: 76, comfortLow: 43, comfortHigh: 67 }
 ];
+
+var FAMILY_VOICES = [[1, 2], [3, 4], [5, 6, 7], [8, 9, 10]];
+var MUTE_VOICES = [3, 4, 8, 9, 10];
+var FLATTER_VOICES = [1, 2, 3];
+var STRING_VOICES = [8, 9, 10];
+
+/*
+ * Score words are divided by function.  Tempo words are emitted as global
+ * bach.score markers; expression words are sparse, local phrase directions;
+ * playing techniques are emitted only when a playable state changes.
+ * The vocabulary combines terms directly visible in op.10 with recurrent
+ * Webern score language from opp. 5, 7, 9, 11, 21 and 27 and Stadlen's
+ * performance score.  Writings-language (Zusammenhang, Fasslichkeit,
+ * Gliederung) informs the decision model but is not printed as an instruction.
+ */
+var EXPRESSION_WORDS = {
+    quiet: ["äußerst zart", "mit zartestem Ausdruck", "innig", "sehr innig", "wie ein Hauch", "kaum hörbar", "ganz leise", "verhalten", "schwebend", "verklingend"],
+    lyrical: ["ausdrucksvoll", "mit Ausdruck", "espressivo", "sehr ausdrucksvoll", "dolce", "dolcissimo", "gesangvoll", "warm", "sehr gebunden", "zart hervortretend"],
+    mobile: ["leicht", "flüchtig", "frei im Vortrag", "lebendig", "deutlich", "hervortretend", "etwas belebter", "mit neuer Kraft", "parlando", "zart bewegt"],
+    forceful: ["kräftig", "sehr bestimmt", "scharf", "heftig bewegt", "markiert", "mit Nachdruck", "hervortretend", "sehr deutlich"]
+};
 
 /*
  * Research-informed affinities, not corpus probabilities. They encode
@@ -224,9 +245,12 @@ function decorate() {
     var dynamicCount = emitDynamics();
     var articulationCount = emitArticulations();
     var annotationCount = emitAnnotations();
-    var tempoCount = emitTempi();
+    var phraseCount = emitPhraseMetadata();
+    var tempoCount = emitGlobalDirections();
+    var meterCount = emitMeterChanges();
     outlet(3, ["unsel", "all"]);
-    status("score_ready", "dynamics", dynamicCount, "articulations", articulationCount, "annotations", annotationCount, "tempi", tempoCount);
+    status("score_ready", "dynamics", dynamicCount, "articulations", articulationCount,
+        "annotations", annotationCount, "phrases", phraseCount, "tempi", tempoCount, "meters", meterCount);
 }
 
 function buildEvents(row, profileData) {
@@ -239,7 +263,8 @@ function buildEvents(row, profileData) {
     var groupPosition = 0;
     var groupSize = 0;
     var groupPlan = null;
-    var markingState = { mutes: {}, flags: {} };
+    var markingState = { techniques: {}, flags: {}, expressionGroups: {}, usedWords: {} };
+    var sectionPlans = buildSectionPlans(profileData);
 
     for (var i = 0; i < config.eventCount; i++) {
         var t = config.eventCount === 1 ? 0 : i / (config.eventCount - 1);
@@ -251,6 +276,8 @@ function buildEvents(row, profileData) {
                 profileData, t, groupIndex, groupSize, previousVoice,
                 recentVoices, i, onsetBeats
             );
+            groupPlan.sectionStyle = sectionPlans[Math.min(sectionPlans.length - 1,
+                Math.floor(t * sectionPlans.length))];
         }
         var groupInfo = {
             index: groupIndex,
@@ -320,6 +347,9 @@ function buildEvents(row, profileData) {
             groupSize: groupSize,
             groupTexture: groupPlan.texture,
             phraseFocus: groupPlan.focusVoice,
+            sectionIndex: groupPlan.sectionStyle.index,
+            technique: groupPlan.sectionStyle.techniques[voice],
+            articulationMode: groupPlan.sectionStyle.articulations[INSTRUMENTS[voice - 1].family],
             synchronized: groupPlan.synchronized,
             mirrorOf: mirrorEvent ? mirrorEvent.index : -1,
             decisionReason: groupPlan.texture + "; " + voiceDecision.reason
@@ -348,9 +378,64 @@ function buildEvents(row, profileData) {
         groupPosition++;
     }
 
-    applyTempoAnnotations(result, profileData);
     applyClosures(result, profileData);
+    enforceMonophonicOnsets(result);
+    sanitizeTechniqueGrammar(result);
+    applyPhrasePlans(result);
     return result;
+}
+
+function buildSectionPlans(profileData) {
+    var sectionCount = (profileData.id === "op10-ii" || profileData.id === "op10-v") ? 5 :
+        (profileData.id === "op10-iii" ? 3 : 4);
+    var plans = [];
+    var muteStart = Math.floor(random01() * Math.max(1, sectionCount - 1));
+    var flatterSection = 1 + Math.floor(random01() * Math.max(1, sectionCount - 2));
+    var pizzSection = 1 + Math.floor(random01() * Math.max(1, sectionCount - 2));
+
+    for (var section = 0; section < sectionCount; section++) {
+        var t = (section + 0.5) / sectionCount;
+        var activityValue = interpolate(profileData.activity, t);
+        var articulations = [];
+        articulations[0] = activityValue > 0.68 ? "detached" : (section % 2 ? "portato" : "legato");
+        articulations[1] = activityValue > 0.58 ? "accented" : "sustained";
+        articulations[2] = profileData.id === "op10-iii" ? "resonant" : (activityValue > 0.66 ? "punctuated" : "resonant");
+        articulations[3] = activityValue > 0.7 ? "accented" : (section % 3 === 1 ? "portato" : "legato");
+
+        var techniques = {};
+        for (var voice = 1; voice <= 10; voice++) {
+            techniques[voice] = voice >= 8 ? "arco" : "ordinary";
+        }
+
+        if ((profileData.id === "op10-i" || profileData.id === "op10-iv") &&
+                section >= muteStart && section <= muteStart + 1) {
+            for (var muteIndex = 0; muteIndex < MUTE_VOICES.length; muteIndex++) {
+                techniques[MUTE_VOICES[muteIndex]] = "muted";
+            }
+        }
+        if (profileData.id === "op10-ii" && section === Math.max(2, sectionCount - 2)) {
+            techniques[8] = techniques[9] = techniques[10] = "col-legno";
+        }
+        if ((profileData.id === "op10-v" || profileData.id === "op10-synthesis") && section === pizzSection) {
+            techniques[8] = techniques[9] = techniques[10] = "pizzicato";
+        }
+        if ((profileData.id === "op10-ii" || profileData.id === "op10-v") && section === flatterSection) {
+            var flatterCandidates = profileData.id === "op10-v" ? [1, 2, 3] : [1, 3];
+            var flatterVoice = flatterCandidates[Math.floor(random01() * flatterCandidates.length)];
+            techniques[flatterVoice] = "flatter";
+        }
+        if (profileData.id === "op10-iii") {
+            techniques[7] = "soft-mallet";
+            articulations[2] = "resonant";
+        }
+
+        plans.push({
+            index: section,
+            articulations: articulations,
+            techniques: techniques
+        });
+    }
+    return plans;
 }
 
 function chooseGroupSize(profileData, t) {
@@ -428,7 +513,7 @@ function chooseGroupVoice(groupPlan, groupInfo, previousVoice, recentVoices, pro
         var pedalVoices = profileData.pedalVoices || [5, 6, 7];
         var availablePedals = withoutUsedVoices(pedalVoices, groupPlan.usedVoices);
         if (availablePedals.length === 0) {
-            availablePedals = pedalVoices;
+            availablePedals = withoutUsedVoices([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], groupPlan.usedVoices);
         }
         return {
             voice: availablePedals[Math.floor(random01() * availablePedals.length)],
@@ -437,11 +522,26 @@ function chooseGroupVoice(groupPlan, groupInfo, previousVoice, recentVoices, pro
     }
 
     if (groupPlan.texture === "homorhythm") {
-        var syncDecision = chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex, role, mirrorEvent);
+        var family = INSTRUMENTS[groupPlan.focusVoice - 1].family;
+        var sameFamilyAvailable = withoutUsedVoices(FAMILY_VOICES[family], groupPlan.usedVoices);
+        var syncDecision;
+        if (sameFamilyAvailable.length > 0 && groupInfo.position < 3 && random01() < 0.72) {
+            syncDecision = {
+                voice: sameFamilyAvailable[Math.floor(random01() * sameFamilyAvailable.length)],
+                reason: "brief instrumental-family block"
+            };
+        } else {
+            syncDecision = chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex, role, mirrorEvent);
+        }
         var guard = 0;
         while (groupPlan.usedVoices.indexOf(syncDecision.voice) >= 0 && guard < 16) {
             syncDecision = chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex + guard + 1, role, mirrorEvent);
             guard++;
+        }
+        if (groupPlan.usedVoices.indexOf(syncDecision.voice) >= 0) {
+            var unused = withoutUsedVoices([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], groupPlan.usedVoices);
+            syncDecision.voice = unused.length ? unused[Math.floor(random01() * unused.length)] : syncDecision.voice;
+            syncDecision.reason = "playability guard for shared attack";
         }
         syncDecision.reason = "shared rhythmic block; " + syncDecision.reason;
         return syncDecision;
@@ -479,6 +579,9 @@ function chooseAffinedVoice(sourceVoice, profileData, usedVoices) {
         var weight = 0.15 + timbralAffinity(sourceVoice, voice) * 2.2;
         if (voice === sourceVoice) {
             weight = 0.02;
+        }
+        if (INSTRUMENTS[voice - 1].family === INSTRUMENTS[sourceVoice - 1].family) {
+            weight += 1.25 + config.coherence * 1.25;
         }
         if (usedVoices.indexOf(voice) >= 0) {
             weight *= 0.3;
@@ -670,11 +773,11 @@ function chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex, ro
             weight *= 0.06;
             voiceReasons.push("exact colour repetition penalized");
         } else if (previousVoice > 0 && instrument.family !== INSTRUMENTS[previousVoice - 1].family) {
-            weight += 0.55 + config.timbralContrast * 1.15;
+            weight += 0.42 + config.timbralContrast * 0.82;
             voiceReasons.push("polychrome family contrast");
         } else {
-            weight += 0.48 * (1 - config.timbralContrast);
-            voiceReasons.push("family continuity");
+            weight += 0.72 + config.coherence * 0.72 - config.timbralContrast * 0.22;
+            voiceReasons.push("instrumental-family continuity");
         }
 
         if (previousVoice > 0) {
@@ -895,61 +998,56 @@ function chooseInterOnsetBeats(durationBeats, activityValue, profileData, t, gro
 }
 
 function chooseArticulation(voice, durationBeats, activityValue, t, profileData, groupPlan) {
+    var technique = groupPlan.sectionStyle.techniques[voice];
+    var family = INSTRUMENTS[voice - 1].family;
+    var mode = groupPlan.sectionStyle.articulations[family];
     if (groupPlan.texture === "pedal-tremolo") {
         return (voice === 5 || voice === 7 || voice >= 8) && random01() < 0.42 ? "trill" : "tremolo1";
     }
-    if (voice === 1 && (profileData.id === "op10-ii" || profileData.id === "op10-v") &&
-            t > 0.28 && t < 0.82 && random01() < 0.32) {
+    if (technique === "flatter") {
         return "tremolo1";
     }
     if (groupPlan.texture === "homorhythm") {
-        if ((profileData.id === "op10-ii" || profileData.id === "op10-v") && activityValue > 0.62) {
-            return random01() < 0.55 ? "accentstaccato" : "staccatissimo";
+        if (mode === "accented") {
+            return durationBeats <= 0.75 ? "accentstaccato" : "accent";
         }
-        return random01() < 0.5 ? "accent" : "portato";
+        if (mode === "detached" || mode === "punctuated") {
+            return durationBeats <= 0.75 ? "staccatissimo" : "portato";
+        }
+        return mode === "portato" ? "portato" : "";
     }
-    var chance = 0.18 + activityValue * 0.26 + config.lyricism * 0.08;
-    if (random01() > chance) {
+    if (mode === "legato" || mode === "sustained" || mode === "resonant") {
         return "";
     }
-    if (durationBeats <= 0.5) {
-        return random01() < 0.78 ? "staccato" : "accentstaccato";
+    if (mode === "detached" || mode === "punctuated") {
+        return durationBeats <= 0.75 ? "staccato" : "portato";
     }
-    if (durationBeats >= 1.5 && random01() < 0.3) {
-        if ((voice <= 2 || voice >= 8) && random01() < 0.55) {
-            return "trill";
-        }
-        return "tremolo1";
+    if (mode === "accented") {
+        return durationBeats <= 0.75 ? "accentstaccato" : "accent";
     }
-    if (activityValue > 0.68 && random01() < 0.42) {
-        return "accent";
-    }
-    return "portato";
+    return mode === "portato" ? "portato" : "";
 }
 
 function chooseAnnotation(profileData, t, groupPlan, groupInfo, voice, activityValue, articulation, state) {
     var instrument = INSTRUMENTS[voice - 1];
-    if (groupInfo.index === 0 && groupInfo.position === 0) {
-        return profileData.initialMarking || "ruhig";
-    }
-
-    if ((profileData.id === "op10-i" || profileData.id === "op10-iv") &&
-            (instrument.family === 1 || instrument.family === 3) && !state.mutes[voice]) {
-        state.mutes[voice] = 1;
-        return "mit Dämpfer";
-    }
-    if (voice === 1 && articulation === "tremolo1" &&
-            (profileData.id === "op10-i" || profileData.id === "op10-ii" || profileData.id === "op10-v")) {
-        return "Flatterzunge";
+    var technique = groupPlan.sectionStyle.techniques[voice];
+    var previousTechnique = state.techniques[voice];
+    if (previousTechnique !== technique) {
+        state.techniques[voice] = technique;
+        if (technique === "muted" && MUTE_VOICES.indexOf(voice) >= 0) { return "mit Dämpfer"; }
+        if (technique === "pizzicato" && STRING_VOICES.indexOf(voice) >= 0) { return "pizz."; }
+        if (technique === "col-legno" && STRING_VOICES.indexOf(voice) >= 0) { return "col legno"; }
+        if (technique === "flatter" && FLATTER_VOICES.indexOf(voice) >= 0) { return "Flatterzunge"; }
+        if (technique === "soft-mallet" && voice === 7) { return "mit Schwammschlägel"; }
+        if (technique === "arco" && (previousTechnique === "pizzicato" || previousTechnique === "col-legno")) { return "arco"; }
+        if (technique === "ordinary" && previousTechnique === "flatter") { return "ordinario"; }
+        if (technique === "ordinary" && previousTechnique === "muted" && voice <= 4) { return "ohne Dämpfer"; }
+        if (technique === "arco" && previousTechnique === "muted") { return "Dämpfer ab"; }
     }
     if (groupPlan.texture === "pedal-tremolo") {
-        if (voice === 7 && !state.flags.softMallet) {
-            state.flags.softMallet = 1;
-            return "mit Schwammschlägel, kaum hörbar";
-        }
         if (!state.flags.pedal) {
             state.flags.pedal = 1;
-            return "tremolo, kaum hörbar";
+            return "kaum hörbar";
         }
         if (t > 0.78 && !state.flags.pedalFade) {
             state.flags.pedalFade = 1;
@@ -957,36 +1055,48 @@ function chooseAnnotation(profileData, t, groupPlan, groupInfo, voice, activityV
         }
         return "";
     }
-    if (groupPlan.texture === "homorhythm" && profileData.id === "op10-ii" &&
-            t > 0.62 && instrument.family === 3) {
-        return "col legno";
-    }
     if (groupInfo.position !== 0) {
         return "";
     }
-
-    if (profileData.id === "op10-i") {
-        if (t < 0.3 && claimFlag(state, "dolcissimo")) { return "dolcissimo"; }
-        if (t > 0.62 && claimFlag(state, "hauch")) { return "wie ein Hauch"; }
-        if (claimOccasion(groupInfo.index, 4)) { return "espress."; }
-    } else if (profileData.id === "op10-ii") {
-        if (groupPlan.texture === "homorhythm" && claimFlag(state, "deutlich")) { return "deutlich"; }
-        if (t < 0.46 && claimOccasion(groupInfo.index, 3)) { return "dolce"; }
-        if (t >= 0.46 && claimOccasion(groupInfo.index, 3)) { return activityValue > 0.72 ? "molto espr." : "espress."; }
-    } else if (profileData.id === "op10-iii") {
-        if (t < 0.5 && claimFlag(state, "verySoft")) { return "immer äußerst leise"; }
-        if (t > 0.68 && claimFlag(state, "resonance")) { return "Resonanz stehen lassen"; }
-    } else if (profileData.id === "op10-iv") {
-        if (t < 0.38 && claimFlag(state, "hauch")) { return "wie ein Hauch"; }
-        if (t > 0.38 && t < 0.7 && claimFlag(state, "bound")) { return "sehr gebunden"; }
-        if (t >= 0.7 && claimFlag(state, "dolcissimo")) { return "dolcissimo"; }
-    } else if (profileData.id === "op10-v") {
-        if (t < 0.62 && claimOccasion(groupInfo.index, 3)) { return activityValue > 0.75 ? "molto espr." : "espress."; }
-        if (t > 0.76 && claimFlag(state, "epilogue")) { return "ruhig, dolce"; }
-    } else if (claimOccasion(groupInfo.index, 4)) {
-        return random01() < 0.5 ? "espress." : "dolce";
+    if (state.expressionGroups[groupInfo.index] || random01() > expressionProbability(profileData, t, activityValue)) {
+        return "";
     }
-    return "";
+    state.expressionGroups[groupInfo.index] = 1;
+    return chooseExpressionWord(profileData, t, activityValue, instrument.family, state);
+}
+
+function expressionProbability(profileData, t, activityValue) {
+    var probability = 0.13 + config.lyricism * 0.1;
+    if (profileData.id === "op10-ii" || profileData.id === "op10-v") {
+        probability += activityValue * 0.08;
+    }
+    if (profileData.id === "op10-iii") {
+        probability *= 0.72;
+    }
+    return probability;
+}
+
+function chooseExpressionWord(profileData, t, activityValue, family, state) {
+    var category;
+    if (activityValue < 0.3 || profileData.id === "op10-i" || profileData.id === "op10-iii" || (profileData.id === "op10-v" && t > 0.76)) {
+        category = random01() < 0.55 ? "quiet" : "lyrical";
+    } else if (activityValue > 0.72) {
+        category = random01() < 0.58 ? "forceful" : "mobile";
+    } else {
+        category = random01() < config.lyricism ? "lyrical" : "mobile";
+    }
+    var pool = EXPRESSION_WORDS[category].slice(0);
+    if (family === 2) {
+        pool = pool.concat(["nachklingend", "Resonanz stehen lassen"]);
+    }
+    var unused = [];
+    for (var i = 0; i < pool.length; i++) {
+        if (!state.usedWords[pool[i]]) { unused.push(pool[i]); }
+    }
+    if (unused.length === 0) { unused = pool; }
+    var word = unused[Math.floor(random01() * unused.length)];
+    state.usedWords[word] = 1;
+    return word;
 }
 
 function claimFlag(state, key) {
@@ -999,33 +1109,6 @@ function claimFlag(state, key) {
 
 function claimOccasion(index, divisor) {
     return index > 0 && index % divisor === 0;
-}
-
-function applyTempoAnnotations(events, profileData) {
-    var plan = profileData.tempoPlan || [];
-    if (events.length === 0 || plan.length < 2) {
-        return;
-    }
-    for (var planIndex = 1; planIndex < plan.length; planIndex++) {
-        var target = clamp(Number(plan[planIndex][0]), 0, 1);
-        var targetIndex = Math.round(target * (events.length - 1));
-        var best = events[targetIndex];
-        var bestDistance = 999;
-        for (var i = 0; i < events.length; i++) {
-            if (events[i].groupPosition !== 0) {
-                continue;
-            }
-            var distance = Math.abs(i - targetIndex);
-            if (distance < bestDistance) {
-                best = events[i];
-                bestDistance = distance;
-            }
-        }
-        var label = String(plan[planIndex][2] || "");
-        if (label) {
-            best.annotation = best.annotation ? label + " · " + best.annotation : label;
-        }
-    }
 }
 
 function applyClosures(events, profileData) {
@@ -1063,6 +1146,99 @@ function forcePitchClass(event, pitchClass) {
     event.pitchCents = best * 100;
 }
 
+function enforceMonophonicOnsets(events) {
+    var occupied = {};
+    for (var i = 0; i < events.length; i++) {
+        var event = events[i];
+        if ((event.annotation === "mit Dämpfer" || event.annotation === "ohne Dämpfer" || event.annotation === "Dämpfer ab") &&
+                MUTE_VOICES.indexOf(event.voice) < 0) {
+            event.annotation = "";
+        }
+        var key = event.voice + ":" + round3(event.onsetBeats);
+        if (!occupied[key]) {
+            occupied[key] = 1;
+            continue;
+        }
+        if (!INSTRUMENTS[event.voice - 1].monophonic) {
+            continue;
+        }
+        var family = INSTRUMENTS[event.voice - 1].family;
+        var alternatives = FAMILY_VOICES[family];
+        var replacement = 0;
+        for (var altIndex = 0; altIndex < alternatives.length; altIndex++) {
+            var alt = alternatives[altIndex];
+            if (!occupied[alt + ":" + round3(event.onsetBeats)]) {
+                replacement = alt;
+                break;
+            }
+        }
+        if (!replacement) {
+            for (var voice = 1; voice <= 10; voice++) {
+                if (!INSTRUMENTS[voice - 1].monophonic || !occupied[voice + ":" + round3(event.onsetBeats)]) {
+                    replacement = voice;
+                    break;
+                }
+            }
+        }
+        if (replacement) {
+            event.voice = replacement;
+            forcePitchClass(event, event.pitchClass);
+            event.decisionReason += "; monophonic playability reassignment";
+            key = event.voice + ":" + round3(event.onsetBeats);
+            occupied[key] = 1;
+        }
+    }
+}
+
+function sanitizeTechniqueGrammar(events) {
+    for (var i = 0; i < events.length; i++) {
+        var event = events[i];
+        if (event.technique === "muted" && MUTE_VOICES.indexOf(event.voice) < 0) {
+            event.technique = event.voice >= 8 ? "arco" : "ordinary";
+            if (event.annotation === "mit Dämpfer" || event.annotation === "ohne Dämpfer" || event.annotation === "Dämpfer ab") { event.annotation = ""; }
+        }
+        if (event.technique === "flatter" && FLATTER_VOICES.indexOf(event.voice) < 0) {
+            event.technique = event.voice >= 8 ? "arco" : "ordinary";
+            if (event.annotation === "Flatterzunge") { event.annotation = ""; }
+        }
+        if ((event.technique === "pizzicato" || event.technique === "col-legno" || event.technique === "arco") &&
+                STRING_VOICES.indexOf(event.voice) < 0) {
+            event.technique = "ordinary";
+            if (event.annotation === "pizz." || event.annotation === "col legno" || event.annotation === "arco") {
+                event.annotation = "";
+            }
+        }
+    }
+}
+
+function applyPhrasePlans(events) {
+    var groups = {};
+    var phraseNumber = 0;
+    for (var i = 0; i < events.length; i++) {
+        var key = events[i].groupIndex + ":" + events[i].voice;
+        if (!groups[key]) { groups[key] = []; }
+        groups[key].push(events[i]);
+    }
+    for (var groupKey in groups) {
+        if (!groups.hasOwnProperty(groupKey)) { continue; }
+        var phrase = groups[groupKey];
+        if (phrase.length < 2 || phrase.length > 6 || phrase[0].synchronized) { continue; }
+        var mode = phrase[0].articulationMode;
+        var technique = phrase[0].technique;
+        var span = phrase[phrase.length - 1].onsetBeats + phrase[phrase.length - 1].durationBeats - phrase[0].onsetBeats;
+        if ((mode !== "legato" && mode !== "portato" && mode !== "sustained") ||
+                technique === "pizzicato" || technique === "col-legno" || span > 8) {
+            continue;
+        }
+        phraseNumber++;
+        phrase[0].phraseSlurStart = phraseNumber;
+        phrase[phrase.length - 1].phraseSlurStop = phraseNumber;
+        for (var phraseIndex = 0; phraseIndex < phrase.length; phraseIndex++) {
+            phrase[phraseIndex].phraseId = phraseNumber;
+        }
+    }
+}
+
 function emitDynamics() {
     var byVoice = eventsByVoice();
     var commandCount = 0;
@@ -1075,9 +1251,11 @@ function emitDynamics() {
             var current = keypoints[i];
             var next = i + 1 < keypoints.length ? keypoints[i + 1] : null;
             var token = DYNAMIC_MARKS[current.dynamicLevel];
-            if (next && next.dynamicLevel > current.dynamicLevel) {
+            var shortPhraseHairpin = next && next.groupIndex === current.groupIndex &&
+                next.onsetBeats - current.onsetBeats <= maxHairpinBeats(activeProfile());
+            if (shortPhraseHairpin && next.dynamicLevel > current.dynamicLevel) {
                 token += "<";
-            } else if (next && next.dynamicLevel < current.dynamicLevel) {
+            } else if (shortPhraseHairpin && next.dynamicLevel < current.dynamicLevel) {
                 token += ">";
             }
             selectChord(voice, current.localChord);
@@ -1087,6 +1265,12 @@ function emitDynamics() {
         }
     }
     return commandCount;
+}
+
+function maxHairpinBeats(profileData) {
+    if (profileData.id === "op10-iii") { return 3; }
+    if (profileData.id === "op10-ii" || profileData.id === "op10-v") { return 2; }
+    return 2.5;
 }
 
 function emitArticulations() {
@@ -1124,17 +1308,40 @@ function emitAnnotations() {
     return commandCount;
 }
 
-function emitTempi() {
-    var profileData = activeProfile();
-    var plan = profileData.tempoPlan || [[0, 1, "tempo"]];
+function emitPhraseMetadata() {
+    var localCounters = [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0];
+    var count = 0;
+    for (var i = 0; i < generatedEvents.length; i++) {
+        var event = generatedEvents[i];
+        localCounters[event.voice]++;
+        var token = "";
+        if (event.phraseSlurStart) { token = "__WEBERN_SLUR_START_" + event.phraseSlurStart; }
+        if (event.phraseSlurStop) { token = "__WEBERN_SLUR_STOP_" + event.phraseSlurStop; }
+        if (!token) { continue; }
+        selectChord(event.voice, localCounters[event.voice]);
+        outlet(3, ["setslot", "[", 25, token, "]"]);
+        outlet(3, ["clearselection"]);
+        count++;
+    }
+    return count;
+}
+
+function scoreMeasureCount() {
     var totalBeats = 4;
     for (var i = 0; i < generatedEvents.length; i++) {
         totalBeats = Math.max(totalBeats, generatedEvents[i].onsetBeats + generatedEvents[i].durationBeats);
     }
-    var measureCount = Math.max(1, Math.ceil(totalBeats / 4));
+    return Math.max(1, Math.ceil(totalBeats / 4));
+}
+
+function emitGlobalDirections() {
+    var profileData = activeProfile();
+    var plan = profileData.tempoPlan || [[0, 1, "tempo"]];
+    var measureCount = scoreMeasureCount();
     var usedMeasures = {};
     var count = 0;
     outlet(3, ["cleartempi"]);
+    outlet(3, ["clearmarkers"]);
     for (var planIndex = 0; planIndex < plan.length; planIndex++) {
         var measure = 1 + Math.floor(clamp(Number(plan[planIndex][0]), 0, 1) * Math.max(0, measureCount - 1));
         while (usedMeasures[measure] && measure < measureCount) {
@@ -1146,9 +1353,35 @@ function emitTempi() {
         usedMeasures[measure] = 1;
         var bpm = Math.round(clamp(config.tempo * Number(plan[planIndex][1]), 24, 220));
         outlet(3, ["addtempo", measure, "[", "1/4", bpm, "]"]);
+        var label = planIndex === 0 && profileData.initialMarking ? profileData.initialMarking : String(plan[planIndex][2] || "");
+        if (label) {
+            var words = label.split(" ");
+            outlet(3, ["addmarker", "[", measure, "]", "["].concat(words).concat(["]"]));
+        }
         count++;
     }
     return count;
+}
+
+function emitMeterChanges() {
+    var profileData = activeProfile();
+    var measureCount = scoreMeasureCount();
+    if (measureCount < 5 || profileData.id === "op10-iii" || random01() > 0.42) {
+        return 0;
+    }
+    var candidates = profileData.id === "op10-ii" || profileData.id === "op10-v" ? [[3, 4], [5, 8]] : [[3, 4], [2, 4]];
+    var signature = candidates[Math.floor(random01() * candidates.length)];
+    var measure = 2 + Math.floor(random01() * Math.max(1, measureCount - 3));
+    outlet(3, ["unsel", "all"]);
+    outlet(3, ["sel", "measure", "range", "[", measure, "]"]);
+    outlet(3, ["measureinfo", "[", signature[0], signature[1], "]"]);
+    outlet(3, ["clearselection"]);
+    if (measure + 1 <= measureCount) {
+        outlet(3, ["sel", "measure", "range", "[", measure + 1, "]"]);
+        outlet(3, ["measureinfo", "[", 4, 4, "]"]);
+        outlet(3, ["clearselection"]);
+    }
+    return 1;
 }
 
 function selectChord(voice, localChord) {
@@ -1181,7 +1414,9 @@ function chooseDynamicKeypoints(events) {
     var last = events[0];
     for (var i = 1; i < events.length - 1; i++) {
         var event = events[i];
-        if (event.dynamicLevel !== last.dynamicLevel && event.localChord - last.localChord >= 2) {
+        var phraseBoundary = event.groupIndex !== last.groupIndex;
+        var localChange = event.groupIndex === last.groupIndex && event.dynamicLevel !== last.dynamicLevel;
+        if ((phraseBoundary && event.localChord - last.localChord >= 2) || localChange) {
             result.push(event);
             last = event;
         }

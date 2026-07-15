@@ -1,6 +1,6 @@
 {
-  "schemaVersion": 4,
-  "description": "Movement-specific form, register, phrase, synchronous-block, pedal and tempo profiles. Numeric weights are declared generative heuristics; score-observable traits are identified in evidenceNotes.",
+  "schemaVersion": 5,
+  "description": "Movement-specific form, register, phrase, family-cohesion, section-technique, synchronous-block, pedal, meter and global-tempo profiles. Numeric weights are declared generative heuristics; score-observable traits are identified in evidenceNotes.",
   "profiles": [
     {
       "id": "op10-synthesis",
@@ -156,6 +156,19 @@
     "echo": "Two colours answer one another inside a group.",
     "homorhythm": "A brief score-observable block with shared onset and duration.",
     "pedal-tremolo": "Movement III-style multi-instrument resonant field on a focal pitch class."
+  },
+  "playabilityPolicy": {
+    "monophonic": ["Flute", "Clarinet", "Trumpet", "Trombone", "Glockenspiel"],
+    "mute": ["Trumpet", "Trombone", "Violin", "Viola", "Violoncello"],
+    "flatterzunge": ["Flute", "Clarinet", "Trumpet"],
+    "pizzicatoAndArco": ["Violin", "Viola", "Violoncello"],
+    "stateDuration": "Articulation and technique are section states, normally lasting several gestures rather than changing on every note."
+  },
+  "notationPolicy": {
+    "hairpins": "Only local phrase hairpins up to two or three quarter-note beats; no hairpin bridges a phrase boundary.",
+    "globalDirections": "Tempo and agogic words are score markers, never local instrumental annotations.",
+    "phraseSlurs": "Phrase boundaries are exported in hidden slot 25 and converted to standard MusicXML slurs by tools/add_phrase_slurs.js.",
+    "meter": "A single one-measure 3/4, 2/4 or 5/8 deflection may be inserted in eligible profiles and returns immediately to 4/4."
   },
   "evidenceNotes": {
     "I": "Sparse soft field, timbral correspondences, muted colours, displaced symmetries and zögernd–tempo breathing.",

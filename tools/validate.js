@@ -79,6 +79,9 @@ if (scoreBoxes[0].linkdynamicstoslot !== 20 || scoreBoxes[0].linkarticulationsto
 if (scoreBoxes[0].thinannotations !== 1) {
     throw new Error("bach.score annotation thinning must be enabled");
 }
+if (scoreBoxes[0].vzoom < 95 || !Array.isArray(scoreBoxes[0].voicespacing) || scoreBoxes[0].voicespacing.length !== 11) {
+    throw new Error("bach.score must use expanded vertical spacing for ten readable staves");
+}
 
 const coreBox = patch.patcher.boxes.map((entry) => entry.box).find((box) => box.id === "core");
 const coreLines = coreBox.patcher.lines.map((entry) => entry.patchline);
@@ -135,8 +138,8 @@ for (const [source, outlet, destination] of buildRefreshEdges) {
 if (rootLines.some((line) => line.source[0] === "build-button" && line.destination[0] === "build-message")) {
     throw new Error("Build Score must never bypass curve capture and fresh generation");
 }
-if (!rootBoxes["export-message"] || !rootBoxes["export-message"].text.includes("@directionslots 24")) {
-    throw new Error("MusicXML export must include annotation slot 24 as directions");
+if (!rootBoxes["export-message"] || !rootBoxes["export-message"].text.includes("@directionslots 24 25")) {
+    throw new Error("MusicXML export must include annotation and phrase-boundary slots 24/25");
 }
 if (!rootBoxes["profile-select"] || rootBoxes["profile-select"].text !== "sel 0 1 2 3 4 5") {
     throw new Error("Movement selection must install six distinct UI presets");
@@ -178,8 +181,8 @@ const profileDocument = JSON.parse(fs.readFileSync(path.join(root, "max", "weber
 if (!profileDocument.profiles || profileDocument.profiles.length !== 6) {
     throw new Error("Expected six research profiles");
 }
-if (profileDocument.schemaVersion !== 4) {
-    throw new Error("Expected movement/phrase profile schema version 4");
+if (profileDocument.schemaVersion !== 5) {
+    throw new Error("Expected section-technique profile schema version 5");
 }
 for (const profile of profileDocument.profiles) {
     for (const field of ["baseTempo", "phraseSizes", "focusPersistence", "homorhythmProbability", "registerRisk", "tempoPlan"]) {
@@ -200,5 +203,17 @@ childProcess.execFileSync(process.execPath, [
     path.join(root, "tools", "check_musicxml.js"),
     path.join(root, "tests", "fixtures", "score-with-dynamics.musicxml")
 ], { stdio: "inherit" });
+
+const phraseOutput = path.join(root, "tmp", "validated-phrase-slurs.musicxml");
+fs.mkdirSync(path.dirname(phraseOutput), { recursive: true });
+childProcess.execFileSync(process.execPath, [
+    path.join(root, "tools", "add_phrase_slurs.js"),
+    path.join(root, "tests", "fixtures", "score-with-phrase-metadata.musicxml"),
+    phraseOutput
+], { stdio: "inherit" });
+const phraseXml = fs.readFileSync(phraseOutput, "utf8");
+if ((phraseXml.match(/<slur\b/g) || []).length !== 2 || /__WEBERN_SLUR_/.test(phraseXml)) {
+    throw new Error("Phrase-slur MusicXML postprocessor did not convert both boundaries");
+}
 
 console.log("Patch graph, semantic outlet order, dependencies, profiles and engine: valid");

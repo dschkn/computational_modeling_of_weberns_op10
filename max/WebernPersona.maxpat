@@ -13,7 +13,7 @@
       30,
       45,
       1440,
-      940
+      1020
     ],
     "bglocked": 0,
     "openinpresentation": 1,
@@ -2113,9 +2113,23 @@
           "linkarticulationstoslot": 22,
           "linkannotationtoslot": 24,
           "thinannotations": 1,
-          "annotationfontsize": 11,
-          "vzoom": 72,
-          "zoom": 78,
+          "annotationfontsize": 9,
+          "dynamicsfontsize": 12,
+          "voicespacing": [
+            18,
+            34,
+            46,
+            34,
+            50,
+            38,
+            38,
+            50,
+            34,
+            34,
+            22
+          ],
+          "vzoom": 100,
+          "zoom": 82,
           "legend": 0,
           "bgcolor": [
             0.985,
@@ -2142,14 +2156,14 @@
             28,
             420,
             1384,
-            488
+            568
           ],
           "presentation": 1,
           "presentation_rect": [
             28,
             420,
             1384,
-            488
+            568
           ]
         }
       },
@@ -3376,7 +3390,7 @@
         "box": {
           "id": "export-message",
           "maxclass": "message",
-          "text": "exportxml @directionslots 24",
+          "text": "exportxml @directionslots 24 25 @exportmarkers 1",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [
@@ -3385,7 +3399,7 @@
           "patching_rect": [
             1335,
             1045,
-            170,
+            235,
             22
           ]
         }
@@ -4042,7 +4056,7 @@
         "box": {
           "id": "score-setup",
           "maxclass": "message",
-          "text": "numvoices 10, clefs G G G F FG FG G G Alto F, voicenames [ Flute ] [ Clarinet ] [ Trumpet ] [ Trombone ] [ Celesta ] [ Harp ] [ Glockenspiel ] [ Violin ] [ Viola ] [ Violoncello ], midichannels 1 2 3 4 5 6 7 8 9 10, slotinfo [ 24 [ name annotation ] [ type text ] ], linkdynamicstoslot 20, linkarticulationstoslot 22, linkannotationtoslot 24, thinannotations 1",
+          "text": "numvoices 10, clefs G G G F FG FG G G Alto F, voicenames [ Flute ] [ Clarinet ] [ Trumpet ] [ Trombone ] [ Celesta ] [ Harp ] [ Glockenspiel ] [ Violin ] [ Viola ] [ Violoncello ], midichannels 1 2 3 4 5 6 7 8 9 10, slotinfo [ 24 [ name annotation ] [ type text ] ] [ 25 [ name phrase-slur-metadata ] [ type text ] ], linkdynamicstoslot 20, linkarticulationstoslot 22, linkannotationtoslot 24, annotationfontsize 9, dynamicsfontsize 12, voicespacing 18 34 46 34 50 38 38 50 34 34 22, vzoom 100, thinannotations 1",
           "numinlets": 2,
           "numoutlets": 1,
           "outlettype": [

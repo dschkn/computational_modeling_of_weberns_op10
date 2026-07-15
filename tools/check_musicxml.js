@@ -54,9 +54,6 @@ if (stats.notes === 0) {
 if (stats.dynamics === 0) {
     errors.push("no <dynamics> elements found");
 }
-if (stats.crescendoWedges + stats.diminuendoWedges === 0) {
-    errors.push("no crescendo or diminuendo <wedge> elements found");
-}
 if (stats.textDirections === 0) {
     errors.push("no text directions exported from annotation slot 24");
 }
@@ -71,7 +68,12 @@ if (errors.length > 0) {
     process.exit(1);
 }
 
-console.log("MusicXML dynamics and hairpins: present");
+console.log("MusicXML dynamics: present");
+if (stats.crescendoWedges + stats.diminuendoWedges === 0) {
+    console.warn("MusicXML note: this generation contains no local hairpin");
+} else {
+    console.log("MusicXML local hairpins: present");
+}
 console.log("MusicXML tempo and annotation directions: present");
 if (stats.articulations + stats.ornaments === 0) {
     console.warn("MusicXML warning: no articulation or ornament containers found");

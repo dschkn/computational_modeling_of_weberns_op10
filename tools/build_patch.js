@@ -283,7 +283,7 @@ function createCorePatcher() {
 }
 
 function createMainPatcher() {
-    const patcher = patcherBase([30, 45, 1440, 940]);
+    const patcher = patcherBase([30, 45, 1440, 1020]);
     patcher.openinpresentation = 1;
     patcher.bgcolor = COLORS.background;
     patcher.editing_bgcolor = COLORS.background;
@@ -482,9 +482,11 @@ function createMainPatcher() {
         linkarticulationstoslot: 22,
         linkannotationtoslot: 24,
         thinannotations: 1,
-        annotationfontsize: 11,
-        vzoom: 72,
-        zoom: 78,
+        annotationfontsize: 9,
+        dynamicsfontsize: 12,
+        voicespacing: [18, 34, 46, 34, 50, 38, 38, 50, 34, 34, 22],
+        vzoom: 100,
+        zoom: 82,
         legend: 0,
         bgcolor: [0.985, 0.985, 0.98, 1],
         textcolor: [0.08, 0.08, 0.08, 1],
@@ -492,7 +494,7 @@ function createMainPatcher() {
         showfirstmeasurenumber: 0,
         finitestaff: 1,
         versionnumber: 80200
-    }, [28, 420, 1384, 488]));
+    }, [28, 420, 1384, 568]));
 
     // Clean control bus: presentation objects talk to one named send.
     addBox(patcher, objectBox("engine-send", "s #0-webern-engine", [95, 1000, 126, 22], 1, 0, []));
@@ -533,7 +535,7 @@ function createMainPatcher() {
     addBox(patcher, messageBox("clear-message", "clear", [1237, 1045, 38, 22]));
     addBox(patcher, messageBox("play-message", "play", [1289, 1045, 34, 22]));
     addBox(patcher, messageBox("stop-message", "stop", [1337, 1045, 34, 22]));
-    addBox(patcher, messageBox("export-message", "exportxml @directionslots 24", [1335, 1045, 170, 22]));
+    addBox(patcher, messageBox("export-message", "exportxml @directionslots 24 25 @exportmarkers 1", [1335, 1045, 235, 22]));
     addBox(patcher, objectBox("row-set", "prepend set", [555, 1000, 81, 22]));
     addBox(patcher, objectBox("status-set", "prepend set", [655, 1000, 81, 22]));
     addBox(patcher, objectBox("profile-trigger", "t i i", [95, 1185, 42, 22], 1, 2, ["int", "int"]));
@@ -577,7 +579,7 @@ function createMainPatcher() {
     addBox(patcher, messageBox("init-lyricism", "0.8", [840, 1140, 38, 22]));
     addBox(patcher, messageBox(
         "score-setup",
-        "numvoices 10, clefs G G G F FG FG G G Alto F, voicenames [ Flute ] [ Clarinet ] [ Trumpet ] [ Trombone ] [ Celesta ] [ Harp ] [ Glockenspiel ] [ Violin ] [ Viola ] [ Violoncello ], midichannels 1 2 3 4 5 6 7 8 9 10, slotinfo [ 24 [ name annotation ] [ type text ] ], linkdynamicstoslot 20, linkarticulationstoslot 22, linkannotationtoslot 24, thinannotations 1",
+        "numvoices 10, clefs G G G F FG FG G G Alto F, voicenames [ Flute ] [ Clarinet ] [ Trumpet ] [ Trombone ] [ Celesta ] [ Harp ] [ Glockenspiel ] [ Violin ] [ Viola ] [ Violoncello ], midichannels 1 2 3 4 5 6 7 8 9 10, slotinfo [ 24 [ name annotation ] [ type text ] ] [ 25 [ name phrase-slur-metadata ] [ type text ] ], linkdynamicstoslot 20, linkarticulationstoslot 22, linkannotationtoslot 24, annotationfontsize 9, dynamicsfontsize 12, voicespacing 18 34 46 34 50 38 38 50 34 34 22, vzoom 100, thinannotations 1",
         [890, 1140, 850, 22]
     ));
 

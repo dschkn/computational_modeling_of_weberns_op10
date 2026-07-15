@@ -119,18 +119,89 @@ function testScoreDecoration() {
     const dynamics = commands.filter((command) => command[0] === "setslot" && command[2] === 20);
     const articulations = commands.filter((command) => command[0] === "setslot" && command[2] === 22);
     const annotations = commands.filter((command) => command[0] === "setslot" && command[2] === 24);
+    const phraseMetadata = commands.filter((command) => command[0] === "setslot" && command[2] === 25);
     const tempi = commands.filter((command) => command[0] === "addtempo");
+    const markers = commands.filter((command) => command[0] === "addmarker");
 
     assert(dynamics.length > 0, "dynamics must be written to slot 20");
     assert(articulations.length > 0, "articulations must be written to slot 22");
     assert(annotations.length > 0, "character and technique text must be written to annotation slot 24");
+    assert(phraseMetadata.length > 0, "multi-note phrase boundaries must be exported in slot 25");
     assert(tempi.length >= 3, "movement-specific tempo changes must be added to bach.score");
-    assert(selections.length >= dynamics.length + articulations.length + annotations.length);
-    assert(selections.every((command) => command.includes("@tiemode") && command.includes("@skiprests")));
-    assert(
-        dynamics.some((command) => /[<>]/.test(String(command[3]))),
-        "at least one dynamic token should create a hairpin"
-    );
+    assert(markers.length >= 3, "tempo and character words must be global score markers");
+    const chordSelections = selections.filter((command) => command[1] === "chord");
+    assert(chordSelections.length >= dynamics.length + articulations.length + annotations.length + phraseMetadata.length);
+    assert(chordSelections.every((command) => command.includes("@tiemode") && command.includes("@skiprests")));
+}
+
+function testShortHairpinsAndGlobalDirections() {
+    const engine = loadEngine();
+    configureAndGenerate(engine, 914, 5, 96);
+    engine.outputs.length = 0;
+    engine.context.decorate();
+    const commands = engine.outputs.filter((entry) => entry.index === 3).map((entry) => entry.atoms[0]);
+    const tokens = new Map();
+    let selected = null;
+    for (const command of commands) {
+        if (command[0] === "sel" && command[1] === "chord") selected = `${command[2]}:${command[4]}`;
+        if (selected && command[0] === "setslot" && command[2] === 20) tokens.set(selected, String(command[3]));
+    }
+    const byVoice = engine.context.eventsByVoice();
+    const maxSpan = engine.context.maxHairpinBeats(engine.context.activeProfile());
+    for (let voice = 1; voice <= 10; voice++) {
+        const points = engine.context.chooseDynamicKeypoints(byVoice[voice]);
+        for (let i = 0; i + 1 < points.length; i++) {
+            const current = points[i];
+            const next = points[i + 1];
+            const token = tokens.get(`${voice}:${current.localChord}`) || "";
+            if (/[<>]$/.test(token)) {
+                assert.strictEqual(current.groupIndex, next.groupIndex, "hairpins may not cross a phrase boundary");
+                assert(next.onsetBeats - current.onsetBeats <= maxSpan, "hairpins must stay inside a short micro-phrase");
+            }
+        }
+    }
+}
+
+function testPlayabilityAndTechniqueGrammar() {
+    for (let profile = 0; profile <= 5; profile++) {
+        const engine = loadEngine();
+        configureAndGenerate(engine, 1900 + profile, profile, 140);
+        const events = plain(engine.context.generatedEvents);
+        const occupied = new Set();
+        for (const event of events) {
+            const instrument = engine.context.INSTRUMENTS[event.voice - 1];
+            const key = `${event.voice}:${event.onsetBeats.toFixed(3)}`;
+            if (instrument.monophonic) {
+                assert(!occupied.has(key), `${instrument.name} may not receive a double stop`);
+            }
+            occupied.add(key);
+            if (event.technique === "muted") assert([3, 4, 8, 9, 10].includes(event.voice));
+            if (event.technique === "flatter") assert([1, 2, 3].includes(event.voice));
+            if (event.technique === "pizzicato" || event.technique === "col-legno" || event.technique === "arco") {
+                assert([8, 9, 10].includes(event.voice));
+            }
+        }
+    }
+}
+
+function testSectionArticulationAndFamilyBreath() {
+    const engine = loadEngine();
+    configureAndGenerate(engine, 772, 2, 120);
+    const events = plain(engine.context.generatedEvents);
+    const byGroupFamily = new Map();
+    for (const event of events) {
+        const family = engine.context.INSTRUMENTS[event.voice - 1].family;
+        const key = `${event.groupIndex}:${family}`;
+        if (!byGroupFamily.has(key)) byGroupFamily.set(key, new Set());
+        if (event.articulation) byGroupFamily.get(key).add(event.articulation);
+    }
+    assert([...byGroupFamily.values()].every((marks) => marks.size <= 2), "a phrase family must not change articulation note by note");
+
+    const sameFamilyLinks = events.slice(1).filter((event, index) =>
+        event.groupIndex === events[index].groupIndex &&
+        engine.context.INSTRUMENTS[event.voice - 1].family === engine.context.INSTRUMENTS[events[index].voice - 1].family
+    ).length;
+    assert(sameFamilyLinks >= 12, "woodwind, brass and string family grouping must be audible inside the colour melody");
 }
 
 function testRegisterDisciplineAndMicroPhrases() {
@@ -245,4 +316,7 @@ testSilenceControl();
 testRegisterDisciplineAndMicroPhrases();
 testMovementIdentityAndPedalField();
 testDynamicsAxisIsAuthoritative();
+testShortHairpinsAndGlobalDirections();
+testPlayabilityAndTechniqueGrammar();
+testSectionArticulationAndFamilyBreath();
 console.log("webernPersonaEngine Max-JS harness: all tests passed");
