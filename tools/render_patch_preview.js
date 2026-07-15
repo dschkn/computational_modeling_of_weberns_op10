@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* (c) Dmitrii Shchukin 2026 */
+
 /* Render a lightweight Presentation Mode layout preview without requiring Max. */
 
 const fs = require("fs");
@@ -10,7 +12,7 @@ const root = path.resolve(__dirname, "..");
 const patch = JSON.parse(fs.readFileSync(path.join(root, "max", "WebernPersona.maxpat"), "utf8"));
 const boxes = patch.patcher.boxes.map((entry) => entry.box).filter((box) => box.presentation === 1);
 const width = 1440;
-const height = 940;
+const height = 1140;
 
 function escapeXml(value) {
     return String(value)

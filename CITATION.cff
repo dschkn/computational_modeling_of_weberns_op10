@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this research software, please cite it as follows."
+title: "Computational Modeling of Webern's Op. 10"
+type: software
+authors:
+  - family-names: Shchukin
+    given-names: Dmitrii
+year: 2026
+version: 6.0.0
+license: MIT
+repository-code: "https://github.com/dschkn/computational_modeling_of_weberns_op10"
+abstract: >-
+  A research-informed Max/MSP and bach environment for generating
+  register-aware, micro-phrased and performance-annotated scores after
+  analytical tendencies observed in Anton Webern's orchestral op. 10.

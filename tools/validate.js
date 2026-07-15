@@ -1,11 +1,55 @@
 #!/usr/bin/env node
 
+/* (c) Dmitrii Shchukin 2026 */
+
 const fs = require("fs");
 const path = require("path");
 const childProcess = require("child_process");
 
 const root = path.resolve(__dirname, "..");
 const patchPath = path.join(root, "max", "WebernPersona.maxpat");
+const voicePath = path.join(root, "max", "WebernVoice.maxpat");
+
+const parallelNoteFiles = [
+    "analytical_model.md",
+    "register_phrase_tempo_model.md",
+    "performance_grammar_and_vocabulary.md",
+    "source_map.md"
+];
+for (const language of ["english", "deutsch", "russian"]) {
+    for (const filename of parallelNoteFiles) {
+        const notePath = path.join(root, "research", "notes", language, filename);
+        if (!fs.existsSync(notePath)) throw new Error(`Missing parallel research note ${language}/${filename}`);
+    }
+}
+for (const obsolete of [
+    "docs/WEBERN_PERSONA_PORTRAIT_RU.pdf",
+    "output/pdf/WEBERN_PERSONA_PORTRAIT_RU.pdf",
+    "tools/build_portrait_pdf.py",
+    "research/notes/SOURCE_MAP_RU.md"
+]) {
+    if (fs.existsSync(path.join(root, obsolete))) throw new Error(`Obsolete project artifact remains: ${obsolete}`);
+}
+
+const textualFiles = childProcess.execFileSync("rg", ["--files"], { cwd: root, encoding: "utf8" })
+    .trim().split(/\r?\n/).filter((file) => /\.(md|js|py|json|cff)$/.test(file));
+for (const file of textualFiles) {
+    const content = fs.readFileSync(path.join(root, file), "utf8");
+    const prohibitedAttributions = ["Open" + "AI", "Chat" + "GPT"];
+    if (prohibitedAttributions.some((token) => content.toLowerCase().includes(token.toLowerCase()))) {
+        throw new Error(`Prohibited platform attribution remains in ${file}`);
+    }
+}
+
+for (const file of ["docs/ARCHITECTURE.md", "docs/MAX_RUNTIME_CHECKLIST.md", "research/README.md", "research/notes/README.md"]) {
+    const content = fs.readFileSync(path.join(root, file), "utf8");
+    const english = content.indexOf("## English");
+    const german = content.indexOf("## Deutsch");
+    const russian = content.indexOf("## Русский");
+    if (!(english >= 0 && english < german && german < russian)) {
+        throw new Error(`${file} must present English, German, and Russian in that order`);
+    }
+}
 
 childProcess.execFileSync(process.execPath, [path.join(root, "tools", "build_patch.js")], {
     stdio: "inherit"
@@ -16,6 +60,7 @@ childProcess.execFileSync(process.execPath, ["--check", path.join(root, "max", "
 });
 
 const patch = JSON.parse(fs.readFileSync(patchPath, "utf8"));
+const voicePatch = JSON.parse(fs.readFileSync(voicePath, "utf8"));
 
 function validatePatcher(patcher, label) {
     const ids = patcher.boxes.map((entry) => entry.box.id);
@@ -42,6 +87,7 @@ function validatePatcher(patcher, label) {
 }
 
 validatePatcher(patch.patcher, "root");
+validatePatcher(voicePatch.patcher, "WebernVoice");
 
 if (patch.patcher.openinpresentation !== 1) {
     throw new Error("Main patch must open in Presentation Mode");
@@ -82,6 +128,9 @@ if (scoreBoxes[0].thinannotations !== 1) {
 if (scoreBoxes[0].vzoom < 95 || !Array.isArray(scoreBoxes[0].voicespacing) || scoreBoxes[0].voicespacing.length !== 11) {
     throw new Error("bach.score must use expanded vertical spacing for ten readable staves");
 }
+if (!scoreBoxes[0].presentation_rect || scoreBoxes[0].presentation_rect[3] < 680) {
+    throw new Error("bach.score viewport must be tall enough to show the expanded ten-staff layout");
+}
 
 const coreBox = patch.patcher.boxes.map((entry) => entry.box).find((box) => box.id === "core");
 const coreLines = coreBox.patcher.lines.map((entry) => entry.patchline);
@@ -108,6 +157,11 @@ if (!(outletXs[0] < outletXs[1] && outletXs[1] < outletXs[2])) {
 
 const rootLines = patch.patcher.lines.map((entry) => entry.patchline);
 const rootBoxes = Object.fromEntries(patch.patcher.boxes.map((entry) => [entry.box.id, entry.box]));
+for (const id of ["material-panel", "activity-panel", "dynamics-panel", "persona-panel"]) {
+    if (!rootBoxes[id] || rootBoxes[id].background !== 1 || rootBoxes[id].ignoreclick !== 1) {
+        throw new Error(`${id} must remain a non-intercepting Presentation Mode background`);
+    }
+}
 const expectedCoreDestinations = ["score", "row-set", "status-set"];
 for (let outlet = 0; outlet < expectedCoreDestinations.length; outlet++) {
     const destination = expectedCoreDestinations[outlet];
@@ -143,6 +197,33 @@ if (!rootBoxes["export-message"] || !rootBoxes["export-message"].text.includes("
 }
 if (!rootBoxes["profile-select"] || rootBoxes["profile-select"].text !== "sel 0 1 2 3 4 5") {
     throw new Error("Movement selection must install six distinct UI presets");
+}
+
+const requiredAudioObjects = {
+    "audio-playkeys": "bach.playkeys cents velocity duration @out t",
+    "audio-join": "bach.join 3 @out t",
+    "audio-note": "prepend note",
+    "audio-poly": "poly~ WebernVoice 16 @steal 1"
+};
+for (const [id, text] of Object.entries(requiredAudioObjects)) {
+    if (!rootBoxes[id] || rootBoxes[id].text !== text) {
+        throw new Error(`Missing internal audition object ${id}`);
+    }
+}
+const audioEdges = [
+    ["score", 7, "audio-playkeys", 0],
+    ["audio-playkeys", 2, "audio-join", 2],
+    ["audio-playkeys", 1, "audio-join", 1],
+    ["audio-playkeys", 0, "audio-join", 0],
+    ["audio-note", 0, "audio-poly", 0],
+    ["audio-level", 0, "audio-dac", 0],
+    ["audio-level", 0, "audio-dac", 1]
+];
+for (const [source, outlet, destination, inlet] of audioEdges) {
+    if (!rootLines.some((line) => line.source[0] === source && line.source[1] === outlet &&
+            line.destination[0] === destination && line.destination[1] === inlet)) {
+        throw new Error(`Missing audition edge ${source}:${outlet} -> ${destination}:${inlet}`);
+    }
 }
 
 const directQuantizeOutput = coreLines.find((line) =>
@@ -181,8 +262,8 @@ const profileDocument = JSON.parse(fs.readFileSync(path.join(root, "max", "weber
 if (!profileDocument.profiles || profileDocument.profiles.length !== 6) {
     throw new Error("Expected six research profiles");
 }
-if (profileDocument.schemaVersion !== 5) {
-    throw new Error("Expected section-technique profile schema version 5");
+if (profileDocument.schemaVersion !== 6) {
+    throw new Error("Expected section-technique and rhythmic-cell profile schema version 6");
 }
 for (const profile of profileDocument.profiles) {
     for (const field of ["baseTempo", "phraseSizes", "focusPersistence", "homorhythmProbability", "registerRisk", "tempoPlan"]) {

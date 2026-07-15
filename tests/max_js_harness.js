@@ -1,3 +1,5 @@
+/* (c) Dmitrii Shchukin 2026 */
+
 const assert = require("assert");
 const fs = require("fs");
 const path = require("path");
@@ -77,6 +79,14 @@ function testRowAndEvents() {
         assert(onsets[i] >= onsets[i - 1], "global onsets must be ordered");
     }
     assert(first.chords.every((command) => command[6] > 0), "all durations must be positive");
+
+    const pitchNameToClass = { C: 0, "C#": 1, D: 2, Eb: 3, E: 4, F: 5, "F#": 6, G: 7, Ab: 8, A: 9, Bb: 10, B: 11 };
+    const realizedFirstAggregate = first.chords.slice(0, 12).map((command) => ((command[5] / 100) % 12 + 12) % 12);
+    assert.deepStrictEqual(
+        realizedFirstAggregate,
+        first.row.map((name) => pitchNameToClass[name]),
+        "the displayed row must be the first aggregate actually heard in the score"
+    );
 
     const firstPitchClass = ((first.chords[0][5] / 100) % 12 + 12) % 12;
     const lastPitchClass = ((first.chords[first.chords.length - 1][5] / 100) % 12 + 12) % 12;
@@ -168,17 +178,29 @@ function testPlayabilityAndTechniqueGrammar() {
         configureAndGenerate(engine, 1900 + profile, profile, 140);
         const events = plain(engine.context.generatedEvents);
         const occupied = new Set();
+        const monophonicLines = new Map();
         for (const event of events) {
             const instrument = engine.context.INSTRUMENTS[event.voice - 1];
             const key = `${event.voice}:${event.onsetBeats.toFixed(3)}`;
             if (instrument.monophonic) {
                 assert(!occupied.has(key), `${instrument.name} may not receive a double stop`);
+                if (!monophonicLines.has(event.voice)) monophonicLines.set(event.voice, []);
+                monophonicLines.get(event.voice).push(event);
             }
             occupied.add(key);
             if (event.technique === "muted") assert([3, 4, 8, 9, 10].includes(event.voice));
             if (event.technique === "flatter") assert([1, 2, 3].includes(event.voice));
             if (event.technique === "pizzicato" || event.technique === "col-legno" || event.technique === "arco") {
                 assert([8, 9, 10].includes(event.voice));
+            }
+        }
+        for (const [voice, line] of monophonicLines) {
+            line.sort((a, b) => a.onsetBeats - b.onsetBeats);
+            for (let index = 0; index + 1 < line.length; index++) {
+                assert(
+                    line[index].onsetBeats + line[index].durationBeats <= line[index + 1].onsetBeats + 1e-6,
+                    `${engine.context.INSTRUMENTS[voice - 1].name} sounding intervals may not overlap`
+                );
             }
         }
     }
@@ -243,11 +265,51 @@ function testMovementIdentityAndPedalField() {
     assert(new Set(pedals.map((event) => event.voice)).size >= 3, "the pedal field must combine several instruments");
     assert(new Set(pedals.map((event) => event.pitchClass)).size === 1, "the pedal field must share its focal pitch class");
     assert(pedals.every((event) => event.articulation === "tremolo1" || event.articulation === "trill"));
+    assert(pedals.every((event) => !event.synchronized), "movement III pedal carriers must breathe in staggered layers");
+    const pedalGroups = new Map();
+    for (const event of pedals) pedalGroups.set(event.groupIndex, (pedalGroups.get(event.groupIndex) || 0) + 1);
+    assert([...pedalGroups.values()].every((size) => size <= 3), "no pedal group may accumulate more than three carriers");
+    for (const event of pedals) {
+        const concurrent = pedals.filter((candidate) =>
+            candidate.onsetBeats <= event.onsetBeats &&
+            candidate.onsetBeats + candidate.durationBeats > event.onsetBeats
+        ).length;
+        assert(concurrent <= 3, "the complete movement III pedal field may not exceed three concurrent layers");
+    }
 
     const endings = movementEvents.slice(1).map((events) =>
         Math.max(...events.map((event) => event.onsetBeats + event.durationBeats))
     );
     assert(new Set(endings.map((value) => Math.round(value))).size >= 4, "the five movement forms must have distinct temporal silhouettes");
+}
+
+function testRhythmicLexiconAvoidsAdjacentCopies() {
+    const engine = loadEngine();
+    configureAndGenerate(engine, 615, 2, 120);
+    const events = plain(engine.context.generatedEvents);
+    const signatures = [];
+    for (const event of events) {
+        if (event.groupPosition === 0) signatures.push(event.rhythmSignature);
+    }
+    assert(new Set(signatures).size >= 4, "the score must draw from a varied rhythmic-cell lexicon");
+    for (let index = 1; index < signatures.length; index++) {
+        assert.notStrictEqual(signatures[index], signatures[index - 1], "adjacent micro-phrases may not reuse the same duration cell");
+    }
+}
+
+function testPedalLayerCapAcrossSeeds() {
+    for (const seed of [11, 303, 1913, 4040, 12017]) {
+        const engine = loadEngine();
+        configureAndGenerate(engine, seed, 3, 140);
+        const pedals = plain(engine.context.generatedEvents).filter((event) => event.groupTexture === "pedal-tremolo");
+        for (const event of pedals) {
+            const concurrent = pedals.filter((candidate) =>
+                candidate.onsetBeats <= event.onsetBeats &&
+                candidate.onsetBeats + candidate.durationBeats > event.onsetBeats
+            ).length;
+            assert(concurrent <= 3, `movement III pedal density must be capped for seed ${seed}`);
+        }
+    }
 }
 
 function testDynamicsAxisIsAuthoritative() {
@@ -319,4 +381,6 @@ testDynamicsAxisIsAuthoritative();
 testShortHairpinsAndGlobalDirections();
 testPlayabilityAndTechniqueGrammar();
 testSectionArticulationAndFamilyBreath();
+testRhythmicLexiconAvoidsAdjacentCopies();
+testPedalLayerCapAcrossSeeds();
 console.log("webernPersonaEngine Max-JS harness: all tests passed");

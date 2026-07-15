@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* (c) Dmitrii Shchukin 2026 */
+
 /*
  * Lightweight smoke test for a MusicXML file exported by bach.score.
  * It deliberately has no package dependencies so it can run next to Max.

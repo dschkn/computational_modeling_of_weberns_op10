@@ -1,12 +1,16 @@
 #!/usr/bin/env node
 
-/* Build the complete Max patch from a small, reviewable JavaScript model. */
+/*
+ * Build the complete Max patch from a small, reviewable JavaScript model.
+ * (c) Dmitrii Shchukin 2026
+ */
 
 const fs = require("fs");
 const path = require("path");
 
 const root = path.resolve(__dirname, "..");
 const target = path.join(root, "max", "WebernPersona.maxpat");
+const voiceTarget = path.join(root, "max", "WebernVoice.maxpat");
 
 const APP_VERSION = {
     major: 8,
@@ -140,9 +144,61 @@ function panelBox(id, rect) {
         border: 1,
         bordercolor: COLORS.panelBorder,
         rounded: 12,
+        background: 1,
+        ignoreclick: 1,
         numinlets: 1,
         numoutlets: 0
     }, rect);
+}
+
+function createSynthVoicePatcher() {
+    const voice = patcherBase([120, 120, 690, 430]);
+    voice.bgcolor = [0.12, 0.13, 0.15, 1];
+    voice.description = "Internal audition voice for WebernPersona · (c) Dmitrii Shchukin 2026";
+
+    addBox(voice, objectBox("voice-in", "in 1", [36, 38, 35, 22], 1, 1, [""]));
+    addBox(voice, objectBox("voice-unpack", "unpack f i f", [36, 82, 88, 22], 1, 3, ["float", "int", "float"]));
+    addBox(voice, objectBox("voice-pitch-trigger", "t b f", [36, 126, 38, 22], 1, 2, ["bang", "float"]));
+    addBox(voice, objectBox("voice-cents-midi", "/ 100.", [92, 126, 45, 22], 2, 1, ["float"]));
+    addBox(voice, objectBox("voice-mtof", "mtof", [92, 160, 35, 22], 1, 1, ["float"]));
+    addBox(voice, objectBox("voice-osc", "cycle~ 440", [92, 198, 68, 22], 2, 1, ["signal"]));
+    addBox(voice, objectBox("voice-velocity", "/ 127.", [190, 126, 45, 22], 2, 1, ["float"]));
+    addBox(voice, objectBox("voice-velocity-signal", "sig~", [190, 160, 35, 22], 1, 1, ["signal"]));
+    addBox(voice, objectBox("voice-duration", "clip 40. 12000.", [270, 126, 96, 22], 3, 1, ["float"]));
+    addBox(voice, objectBox("voice-delay", "delay 500", [270, 160, 58, 22], 2, 1, ["bang"]));
+    addBox(voice, messageBox("voice-gate-on", "1.", [36, 160, 30, 22]));
+    addBox(voice, messageBox("voice-gate-off", "0.", [270, 198, 30, 22]));
+    addBox(voice, objectBox("voice-envelope", "adsr~ 8. 35. 0.7 120.", [205, 238, 132, 22], 5, 4, ["signal", "signal", "", ""]));
+    addBox(voice, objectBox("voice-amp-envelope", "*~", [92, 272, 35, 22], 2, 1, ["signal"]));
+    addBox(voice, objectBox("voice-amp-velocity", "*~", [92, 306, 35, 22], 2, 1, ["signal"]));
+    addBox(voice, objectBox("voice-level", "*~ 0.16", [92, 340, 55, 22], 2, 1, ["signal"]));
+    addBox(voice, objectBox("voice-out", "out~ 1", [92, 378, 42, 22], 1, 0, []));
+    addBox(voice, objectBox("voice-thispoly", "thispoly~", [410, 272, 58, 22], 1, 2, ["int", "int"]));
+    addBox(voice, objectBox("voice-loadmute", "loadmess mute 1", [410, 238, 102, 22], 1, 1, [""]));
+
+    addLine(voice, "voice-in", 0, "voice-unpack", 0);
+    addLine(voice, "voice-unpack", 2, "voice-duration", 0);
+    addLine(voice, "voice-duration", 0, "voice-delay", 1);
+    addLine(voice, "voice-unpack", 1, "voice-velocity", 0);
+    addLine(voice, "voice-velocity", 0, "voice-velocity-signal", 0);
+    addLine(voice, "voice-unpack", 0, "voice-pitch-trigger", 0);
+    addLine(voice, "voice-pitch-trigger", 1, "voice-cents-midi", 0);
+    addLine(voice, "voice-cents-midi", 0, "voice-mtof", 0);
+    addLine(voice, "voice-mtof", 0, "voice-osc", 0);
+    addLine(voice, "voice-pitch-trigger", 0, "voice-gate-on", 0, 0);
+    addLine(voice, "voice-pitch-trigger", 0, "voice-delay", 0, 1);
+    addLine(voice, "voice-gate-on", 0, "voice-envelope", 0);
+    addLine(voice, "voice-delay", 0, "voice-gate-off", 0);
+    addLine(voice, "voice-gate-off", 0, "voice-envelope", 0);
+    addLine(voice, "voice-osc", 0, "voice-amp-envelope", 0);
+    addLine(voice, "voice-envelope", 0, "voice-amp-envelope", 1);
+    addLine(voice, "voice-amp-envelope", 0, "voice-amp-velocity", 0);
+    addLine(voice, "voice-velocity-signal", 0, "voice-amp-velocity", 1);
+    addLine(voice, "voice-amp-velocity", 0, "voice-level", 0);
+    addLine(voice, "voice-level", 0, "voice-out", 0);
+    addLine(voice, "voice-loadmute", 0, "voice-thispoly", 0);
+    addLine(voice, "voice-envelope", 2, "voice-thispoly", 0);
+    return voice;
 }
 
 function textButton(id, text, rect, color) {
@@ -283,10 +339,11 @@ function createCorePatcher() {
 }
 
 function createMainPatcher() {
-    const patcher = patcherBase([30, 45, 1440, 1020]);
+    const patcher = patcherBase([30, 45, 1440, 1138]);
     patcher.openinpresentation = 1;
     patcher.bgcolor = COLORS.background;
     patcher.editing_bgcolor = COLORS.background;
+    patcher.description = "Computational Modeling of Webern's Op. 10 · (c) Dmitrii Shchukin 2026";
 
     addBox(patcher, panelBox("material-panel", [28, 74, 405, 225]));
     addBox(patcher, panelBox("activity-panel", [449, 74, 446, 225]));
@@ -294,6 +351,7 @@ function createMainPatcher() {
 
     addBox(patcher, commentBox("title", "VON WEBERN", [30, 18, 260, 34], 25, COLORS.text, 1));
     addBox(patcher, commentBox("subtitle", "research-informed score generator / op. 10", [222, 29, 390, 22], 12, COLORS.muted, 0));
+    addBox(patcher, commentBox("copyright", "(c) Dmitrii Shchukin 2026", [1132, 29, 280, 20], 10, COLORS.muted, 0));
     addBox(patcher, commentBox("material-title", "MATERIAL", [48, 91, 130, 22], 14, COLORS.amber, 1));
     addBox(patcher, commentBox("activity-title", "ACTIVITY / TIME", [469, 91, 180, 22], 14, COLORS.blue, 1));
     addBox(patcher, commentBox("dynamics-title", "DYNAMICS / TIME", [931, 91, 180, 22], 14, COLORS.amber, 1));
@@ -400,7 +458,7 @@ function createMainPatcher() {
     addBox(patcher, commentBox("dyn-x-left", "beginning", [968, 265, 70, 18], 9, COLORS.muted));
     addBox(patcher, commentBox("dyn-x-right", "ending", [1344, 265, 48, 18], 9, COLORS.muted));
 
-    addBox(patcher, commentBox("row-label", "ROW", [31, 311, 40, 20], 11, COLORS.amber, 1));
+    addBox(patcher, commentBox("row-label", "REALIZED ROW", [31, 311, 92, 20], 11, COLORS.amber, 1));
     addBox(patcher, uiBox({
         id: "row-display",
         maxclass: "message",
@@ -414,7 +472,7 @@ function createMainPatcher() {
         numinlets: 2,
         numoutlets: 1,
         outlettype: [""]
-    }, [73, 307, 520, 27]));
+    }, [126, 307, 467, 27]));
     addBox(patcher, commentBox("status-label", "STATUS", [618, 311, 54, 20], 11, COLORS.blue, 1));
     addBox(patcher, uiBox({
         id: "status-display",
@@ -437,7 +495,7 @@ function createMainPatcher() {
 
     addBox(patcher, panelBox("persona-panel", [28, 348, 1384, 62]));
     addBox(patcher, commentBox("persona-title", "PERSONA / DECISION BIASES", [45, 356, 210, 20], 11, COLORS.blue, 1));
-    addBox(patcher, commentBox("persona-help", "0–1 · constraints shape choices, never copy a historical person", [45, 379, 330, 18], 9, COLORS.muted));
+    addBox(patcher, commentBox("persona-help", "0–1 · coherence, transformation, colour, symmetry and breath", [45, 379, 342, 18], 9, COLORS.muted));
 
     const personaControls = [
         ["coherence-number", "Coherence", [390, 356, 74, 18], [390, 377, 64, 22]],
@@ -494,7 +552,7 @@ function createMainPatcher() {
         showfirstmeasurenumber: 0,
         finitestaff: 1,
         versionnumber: 80200
-    }, [28, 420, 1384, 568]));
+    }, [28, 420, 1384, 700]));
 
     // Clean control bus: presentation objects talk to one named send.
     addBox(patcher, objectBox("engine-send", "s #0-webern-engine", [95, 1000, 126, 22], 1, 0, []));
@@ -538,6 +596,20 @@ function createMainPatcher() {
     addBox(patcher, messageBox("export-message", "exportxml @directionslots 24 25 @exportmarkers 1", [1335, 1045, 235, 22]));
     addBox(patcher, objectBox("row-set", "prepend set", [555, 1000, 81, 22]));
     addBox(patcher, objectBox("status-set", "prepend set", [655, 1000, 81, 22]));
+    addBox(patcher, objectBox("play-trigger", "t b b", [1289, 1080, 40, 22], 1, 2, ["bang", "bang"]));
+    addBox(patcher, messageBox("audio-on", "1", [1338, 1080, 30, 22]));
+    addBox(patcher, objectBox("audio-playkeys", "bach.playkeys cents velocity duration @out t", [1020, 1115, 252, 22], 1, 3, ["", "", ""]));
+    addBox(patcher, objectBox("audio-join", "bach.join 3 @out t", [1020, 1148, 116, 22], 3, 1, [""]));
+    addBox(patcher, objectBox("audio-note", "prepend note", [1150, 1148, 84, 22], 1, 1, [""]));
+    addBox(patcher, objectBox("audio-poly", "poly~ WebernVoice 16 @steal 1", [1248, 1148, 184, 22], 1, 1, ["signal"]));
+    addBox(patcher, objectBox("audio-level", "*~ 0.8", [1248, 1180, 48, 22], 2, 1, ["signal"]));
+    addBox(patcher, {
+        id: "audio-dac",
+        maxclass: "ezdac~",
+        numinlets: 2,
+        numoutlets: 0,
+        patching_rect: [1312, 1177, 45, 45]
+    });
     addBox(patcher, objectBox("profile-trigger", "t i i", [95, 1185, 42, 22], 1, 2, ["int", "int"]));
     addBox(patcher, objectBox("profile-select", "sel 0 1 2 3 4 5", [150, 1185, 118, 22], 1, 7, ["bang", "bang", "bang", "bang", "bang", "bang", ""]));
 
@@ -640,12 +712,28 @@ function createMainPatcher() {
     addLine(patcher, "core", 2, "status-set", 0);
     addLine(patcher, "status-set", 0, "status-display", 0);
 
-    addLine(patcher, "play-button", 0, "play-message", 0);
+    addLine(patcher, "play-button", 0, "play-trigger", 0);
+    addLine(patcher, "play-trigger", 1, "audio-on", 0);
+    addLine(patcher, "audio-on", 0, "audio-dac", 0);
+    addLine(patcher, "play-trigger", 0, "play-message", 0);
     addLine(patcher, "play-message", 0, "score", 0);
     addLine(patcher, "stop-button", 0, "stop-message", 0);
     addLine(patcher, "stop-message", 0, "score", 0);
     addLine(patcher, "export-button", 0, "export-message", 0);
     addLine(patcher, "export-message", 0, "score", 0);
+
+    // bach.score's playout outlet (index 7) carries note data.  bach.playkeys
+    // extracts MIDIcents, velocity and duration, and the bundled poly~ voice
+    // provides an audible reference without external MIDI configuration.
+    addLine(patcher, "score", 7, "audio-playkeys", 0);
+    addLine(patcher, "audio-playkeys", 2, "audio-join", 2);
+    addLine(patcher, "audio-playkeys", 1, "audio-join", 1);
+    addLine(patcher, "audio-playkeys", 0, "audio-join", 0);
+    addLine(patcher, "audio-join", 0, "audio-note", 0);
+    addLine(patcher, "audio-note", 0, "audio-poly", 0);
+    addLine(patcher, "audio-poly", 0, "audio-level", 0);
+    addLine(patcher, "audio-level", 0, "audio-dac", 0);
+    addLine(patcher, "audio-level", 0, "audio-dac", 1);
 
     // Initialization.
     addLine(patcher, "loadbang", 0, "init-trigger", 0);
@@ -676,14 +764,19 @@ function createMainPatcher() {
 
     patcher.dependency_cache = [
         { name: "webernPersonaEngine.js", type: "TEXT", patcherrelativepath: ".", implicit: 1 },
+        { name: "WebernVoice.maxpat", type: "JSON", patcherrelativepath: ".", implicit: 1 },
         { name: "webern_persona_profiles.json", type: "JSON", patcherrelativepath: ".", implicit: 1 },
         { name: "bach.roll.mxo", type: "iLaX" },
         { name: "bach.score.mxo", type: "iLaX" },
         { name: "bach.quantize.mxo", type: "iLaX" }
+        ,{ name: "bach.playkeys.mxo", type: "iLaX" }
+        ,{ name: "bach.join.mxo", type: "iLaX" }
     ];
     return patcher;
 }
 
 const document = { patcher: createMainPatcher() };
 fs.writeFileSync(target, `${JSON.stringify(document, null, 2)}\n`);
+fs.writeFileSync(voiceTarget, `${JSON.stringify({ patcher: createSynthVoicePatcher() }, null, 2)}\n`);
 console.log(`Built ${path.relative(root, target)}`);
+console.log(`Built ${path.relative(root, voiceTarget)}`);

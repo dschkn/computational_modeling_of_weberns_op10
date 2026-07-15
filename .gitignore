@@ -4,6 +4,7 @@
 .DS_Store
 
 # Generated exports
+output/release/
 examples/*.musicxml
 examples/*.xml
 examples/*.mid

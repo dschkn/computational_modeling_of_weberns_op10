@@ -13,7 +13,7 @@
       30,
       45,
       1440,
-      1020
+      1138
     ],
     "bglocked": 0,
     "openinpresentation": 1,
@@ -39,7 +39,7 @@
     "enablehscroll": 1,
     "enablevscroll": 1,
     "devicewidth": 0,
-    "description": "",
+    "description": "Computational Modeling of Webern's Op. 10 · (c) Dmitrii Shchukin 2026",
     "digest": "",
     "tags": "",
     "style": "",
@@ -66,6 +66,8 @@
             1
           ],
           "rounded": 12,
+          "background": 1,
+          "ignoreclick": 1,
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [
@@ -103,6 +105,8 @@
             1
           ],
           "rounded": 12,
+          "background": 1,
+          "ignoreclick": 1,
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [
@@ -140,6 +144,8 @@
             1
           ],
           "rounded": 12,
+          "background": 1,
+          "ignoreclick": 1,
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [
@@ -214,6 +220,36 @@
             29,
             390,
             22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "copyright",
+          "maxclass": "comment",
+          "text": "(c) Dmitrii Shchukin 2026",
+          "fontsize": 10,
+          "fontface": 0,
+          "textcolor": [
+            0.61,
+            0.65,
+            0.72,
+            1
+          ],
+          "numinlets": 1,
+          "numoutlets": 0,
+          "patching_rect": [
+            1132,
+            29,
+            280,
+            20
+          ],
+          "presentation": 1,
+          "presentation_rect": [
+            1132,
+            29,
+            280,
+            20
           ]
         }
       },
@@ -1165,7 +1201,7 @@
         "box": {
           "id": "row-label",
           "maxclass": "comment",
-          "text": "ROW",
+          "text": "REALIZED ROW",
           "fontsize": 11,
           "fontface": 1,
           "textcolor": [
@@ -1179,14 +1215,14 @@
           "patching_rect": [
             31,
             311,
-            40,
+            92,
             20
           ],
           "presentation": 1,
           "presentation_rect": [
             31,
             311,
-            40,
+            92,
             20
           ]
         }
@@ -1218,16 +1254,16 @@
             ""
           ],
           "patching_rect": [
-            73,
+            126,
             307,
-            520,
+            467,
             27
           ],
           "presentation": 1,
           "presentation_rect": [
-            73,
+            126,
             307,
-            520,
+            467,
             27
           ]
         }
@@ -1538,6 +1574,8 @@
             1
           ],
           "rounded": 12,
+          "background": 1,
+          "ignoreclick": 1,
           "numinlets": 1,
           "numoutlets": 0,
           "patching_rect": [
@@ -1589,7 +1627,7 @@
         "box": {
           "id": "persona-help",
           "maxclass": "comment",
-          "text": "0–1 · constraints shape choices, never copy a historical person",
+          "text": "0–1 · coherence, transformation, colour, symmetry and breath",
           "fontsize": 9,
           "fontface": 0,
           "textcolor": [
@@ -1603,14 +1641,14 @@
           "patching_rect": [
             45,
             379,
-            330,
+            342,
             18
           ],
           "presentation": 1,
           "presentation_rect": [
             45,
             379,
-            330,
+            342,
             18
           ]
         }
@@ -2156,14 +2194,14 @@
             28,
             420,
             1384,
-            568
+            700
           ],
           "presentation": 1,
           "presentation_rect": [
             28,
             420,
             1384,
-            568
+            700
           ]
         }
       },
@@ -3437,6 +3475,149 @@
             1000,
             81,
             22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "play-trigger",
+          "maxclass": "newobj",
+          "text": "t b b",
+          "numinlets": 1,
+          "numoutlets": 2,
+          "outlettype": [
+            "bang",
+            "bang"
+          ],
+          "patching_rect": [
+            1289,
+            1080,
+            40,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-on",
+          "maxclass": "message",
+          "text": "1",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1338,
+            1080,
+            30,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-playkeys",
+          "maxclass": "newobj",
+          "text": "bach.playkeys cents velocity duration @out t",
+          "numinlets": 1,
+          "numoutlets": 3,
+          "outlettype": [
+            "",
+            "",
+            ""
+          ],
+          "patching_rect": [
+            1020,
+            1115,
+            252,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-join",
+          "maxclass": "newobj",
+          "text": "bach.join 3 @out t",
+          "numinlets": 3,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1020,
+            1148,
+            116,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-note",
+          "maxclass": "newobj",
+          "text": "prepend note",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            ""
+          ],
+          "patching_rect": [
+            1150,
+            1148,
+            84,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-poly",
+          "maxclass": "newobj",
+          "text": "poly~ WebernVoice 16 @steal 1",
+          "numinlets": 1,
+          "numoutlets": 1,
+          "outlettype": [
+            "signal"
+          ],
+          "patching_rect": [
+            1248,
+            1148,
+            184,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-level",
+          "maxclass": "newobj",
+          "text": "*~ 0.8",
+          "numinlets": 2,
+          "numoutlets": 1,
+          "outlettype": [
+            "signal"
+          ],
+          "patching_rect": [
+            1248,
+            1180,
+            48,
+            22
+          ]
+        }
+      },
+      {
+        "box": {
+          "id": "audio-dac",
+          "maxclass": "ezdac~",
+          "numinlets": 2,
+          "numoutlets": 0,
+          "patching_rect": [
+            1312,
+            1177,
+            45,
+            45
           ]
         }
       },
@@ -5117,6 +5298,42 @@
             0
           ],
           "destination": [
+            "play-trigger",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "play-trigger",
+            1
+          ],
+          "destination": [
+            "audio-on",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-on",
+            0
+          ],
+          "destination": [
+            "audio-dac",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "play-trigger",
+            0
+          ],
+          "destination": [
             "play-message",
             0
           ]
@@ -5179,6 +5396,114 @@
           "destination": [
             "score",
             0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "score",
+            7
+          ],
+          "destination": [
+            "audio-playkeys",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-playkeys",
+            2
+          ],
+          "destination": [
+            "audio-join",
+            2
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-playkeys",
+            1
+          ],
+          "destination": [
+            "audio-join",
+            1
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-playkeys",
+            0
+          ],
+          "destination": [
+            "audio-join",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-join",
+            0
+          ],
+          "destination": [
+            "audio-note",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-note",
+            0
+          ],
+          "destination": [
+            "audio-poly",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-poly",
+            0
+          ],
+          "destination": [
+            "audio-level",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-level",
+            0
+          ],
+          "destination": [
+            "audio-dac",
+            0
+          ]
+        }
+      },
+      {
+        "patchline": {
+          "source": [
+            "audio-level",
+            0
+          ],
+          "destination": [
+            "audio-dac",
+            1
           ]
         }
       },
@@ -5503,6 +5828,12 @@
         "implicit": 1
       },
       {
+        "name": "WebernVoice.maxpat",
+        "type": "JSON",
+        "patcherrelativepath": ".",
+        "implicit": 1
+      },
+      {
         "name": "webern_persona_profiles.json",
         "type": "JSON",
         "patcherrelativepath": ".",
@@ -5518,6 +5849,14 @@
       },
       {
         "name": "bach.quantize.mxo",
+        "type": "iLaX"
+      },
+      {
+        "name": "bach.playkeys.mxo",
+        "type": "iLaX"
+      },
+      {
+        "name": "bach.join.mxo",
         "type": "iLaX"
       }
     ]

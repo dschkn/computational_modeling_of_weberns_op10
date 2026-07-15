@@ -1,177 +1,268 @@
 #!/usr/bin/env python3
+"""Build the trilingual scholarly project description.
+
+Copyright (c) Dmitrii Shchukin 2026
+"""
 
 from pathlib import Path
 
-from reportlab.lib.colors import HexColor
-from reportlab.lib.enums import TA_LEFT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle, PageBreak
+from reportlab.pdfgen import canvas
+from reportlab.platypus import Paragraph
 
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "docs" / "PROJECT_DESCRIPTION_EN_DE_RU.pdf"
-FONT = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
-FONT_BOLD = "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"
+FONT_DIR = Path("/usr/share/fonts/truetype/dejavu")
 
-pdfmetrics.registerFont(TTFont("DejaVu", FONT))
-pdfmetrics.registerFont(TTFont("DejaVu-Bold", FONT_BOLD))
+pdfmetrics.registerFont(TTFont("ProjectSerif", str(FONT_DIR / "DejaVuSerif.ttf")))
+pdfmetrics.registerFont(TTFont("ProjectSerif-Bold", str(FONT_DIR / "DejaVuSerif-Bold.ttf")))
+pdfmetrics.registerFont(TTFont("ProjectSerif-Italic", str(FONT_DIR / "DejaVuSerif.ttf")))
+pdfmetrics.registerFontFamily(
+    "ProjectSerif",
+    normal="ProjectSerif",
+    bold="ProjectSerif-Bold",
+    italic="ProjectSerif-Italic",
+    boldItalic="ProjectSerif-Bold",
+)
 
-INK = HexColor("#1B2430")
-BLUE = HexColor("#315B76")
-AMBER = HexColor("#A7652B")
-PALE = HexColor("#EEF2F4")
-MUTED = HexColor("#5B6570")
+W, H = A4
+LEFT = 24 * mm
+RIGHT = 24 * mm
+WIDTH = W - LEFT - RIGHT
 
 
-def pstyle(name, size, leading, color=INK, bold=False, space_after=0):
+def style(name, size, leading, *, bold=False, italic=False, align=TA_JUSTIFY, before=0, after=0):
+    font = "ProjectSerif-Bold" if bold else ("ProjectSerif-Italic" if italic else "ProjectSerif")
     return ParagraphStyle(
         name,
-        fontName="DejaVu-Bold" if bold else "DejaVu",
+        fontName=font,
         fontSize=size,
         leading=leading,
-        textColor=color,
-        alignment=TA_LEFT,
-        spaceAfter=space_after,
+        textColor=(0, 0, 0),
+        alignment=align,
+        spaceBefore=before,
+        spaceAfter=after,
+        allowWidows=0,
+        allowOrphans=0,
     )
 
 
-TITLE = pstyle("Title", 22, 27, INK, True, 4 * mm)
-KICKER = pstyle("Kicker", 9, 12, AMBER, True, 1.5 * mm)
-HEAD = pstyle("Head", 11.5, 15, BLUE, True, 2 * mm)
-BODY = pstyle("Body", 9.4, 13.4, INK, False, 2.4 * mm)
-SMALL = pstyle("Small", 7.3, 10, MUTED, False, 0)
-CALLOUT = pstyle("Callout", 9.2, 13.2, INK, False, 0)
+TITLE = style("Title", 17, 21, bold=True, align=TA_CENTER)
+SUBTITLE = style("Subtitle", 9.2, 12.5, italic=True, align=TA_CENTER)
+AUTHOR = style("Author", 8.5, 11.5, align=TA_CENTER)
+HEAD = style("Head", 10.2, 13, bold=True, align=TA_LEFT, before=2.5 * mm, after=1.1 * mm)
+BODY = style("Body", 8.55, 12.3)
+ABSTRACT = style("Abstract", 8.45, 12, italic=True)
+REFHEAD = style("RefHead", 8.5, 10.5, bold=True, align=TA_LEFT)
+REF = style("Ref", 6.35, 8.2, align=TA_LEFT)
+FOOT = style("Foot", 6.7, 8.5, align=TA_LEFT)
+
+
+REFERENCES = [
+    "Webern, Anton. <i>Fünf Stücke für Orchester, op. 10</i>. Vienna: Universal Edition, UE 5067/12416, 1923.",
+    "Webern, Anton. <i>Der Weg zur neuen Musik</i>. Edited by Willi Reich. Vienna: Universal Edition, 1960.",
+    "Reutter, Hans Peter. “Anton Webern (1883-1945) - Fünf Stücke für Orchester op. 10 (1911-13) - Freie Atonalität, Reduktion auf aphoristische Gesten.” <i>Wege durch das frühe 20. Jahrhundert</i>. n.d.",
+    "Kholopova, Valentina, and Yuri Kholopov. <i>Anton Webern: Zhizn' i tvorchestvo</i>. Moscow: Sovetskii kompozitor, 1984.",
+    "Zeller, Matthew. “Klangfarbenmelodie in 1911: Timbre's Functional Roles in Webern's Opp. 9 and 10.” <i>Music Theory Online</i> 28, no. 1 (2022). https://doi.org/10.30535/mto.28.1.9.",
+    "Anton Webern Gesamtausgabe. “Overview.” https://anton-webern.ch/en/anton-webern/overview.html (accessed 15 July 2026).",
+    "Library of Congress. “Anton Webern: Letters and Correspondence.” https://guides.loc.gov/anton-webern/correspondence (accessed 15 July 2026).",
+]
 
 
 PAGES = [
     {
-        "lang": "ENGLISH",
-        "title": "Computational Modeling of Webern’s Op. 10",
-        "lead": "A research-informed generative score environment for Max/MSP and bach",
-        "what_h": "What the project does",
-        "what": (
-            "The patch generates a fresh twelve-tone pitch collection, turns it into short motives and breathing instrumental gestures, "
-            "and builds a ten-staff <i>bach.score</i> for the ensemble world of Anton Webern’s <i>Five Pieces for Orchestra, op. 10</i>. "
-            "The result includes register-aware orchestration, rests, dynamics, short hairpins, tempo inflections, articulations and instrument-specific techniques, and can be exported to MusicXML."
+        "language": "English",
+        "title": "Computational Modeling of Webern's Op. 10",
+        "subtitle": "A research-informed generative score environment for Max/MSP and bach",
+        "abstract_h": "Abstract",
+        "abstract": (
+            "The present project investigates how analytical propositions concerning Anton Webern's "
+            "<i>Five Pieces for Orchestra, op. 10</i> may be translated into an explicit and testable "
+            "generative system. A Max/MSP patch creates a new twelve-tone pitch field, organizes it "
+            "into short instrumental phrases, and produces a ten-staff <i>bach.score</i> with dynamics, "
+            "articulation, technique, tempo inflection, and MusicXML export."
         ),
-        "method_h": "Model, not imitation",
+        "method_h": "Research method",
         "method": (
-            "The system does not claim to reconstruct Webern as a historical person. It models traceable preferences: compact motivic groups; displaced symmetry; central tones without functional tonality; "
-            "temporary foreground instruments; exchanges among related colours; brief family blocks within Klangfarbenmelodie; resonant tremolo fields; and sharply differentiated formal profiles for all five movements. "
-            "Global activity and dynamics curves remain editable by the user."
+            "The model separates score-observable evidence, analytical interpretation, and numerical "
+            "heuristic. Webern's score supplies the ensemble, registers, temporal proportions, and "
+            "performance vocabulary. Reutter supports central-tone trajectories, displaced symmetries, "
+            "three-note cells, and instrumental correspondences. Kholopova and Kholopov situate these "
+            "features within Webern's compressed form and conception of musical time. Webern's lectures "
+            "provide the categories of <i>Faßlichkeit</i>, <i>Zusammenhang</i>, and <i>Gliederung</i>. "
+            "Zeller's study informs the codependence of timbre, pitch, register, articulation, and dynamics."
         ),
-        "grammar_h": "Performance and notation grammar",
-        "grammar": (
-            "Playability is enforced before notation: winds remain monophonic; mutes, flutter tongue, pizzicato, arco and col legno are restricted to suitable instruments; technique and articulation persist across sections instead of changing on every note. "
-            "Agogic words such as <i>zögernd</i>, <i>drängend</i> and <i>a tempo</i> are score-level directions. Multi-note phrase boundaries are retained for a standards-compliant MusicXML slur pass."
+        "model_h": "Computational realization",
+        "model": (
+            "The displayed row is literally realized by the first twelve sounding events. Subsequent "
+            "events use movement-specific transformations, central fields, phrase-level rhythmic cells, "
+            "temporary instrumental focus, family grouping, and Klangfarbenmelodie. Instrument ranges "
+            "are divided into ordinary and outer bands; monophonic parts are checked over complete "
+            "durations. Activity and Dynamics curves define temporal density and the global dynamic form. "
+            "Short hairpins, global tempo objects, sparse German character words, phrase metadata, and "
+            "idiomatic techniques complete the notation."
         ),
-        "callout": "Purpose: an explainable composition instrument — not a style-transfer black box, and not a substitute for reading Webern’s scores.",
+        "result_h": "Research output",
+        "result": (
+            "Version 6 comprises six differentiated profiles, a reproducible Max patch, a built-in "
+            "audition synthesizer, MusicXML slur postprocessing, generative invariants tested outside Max, "
+            "and parallel analytical documentation in English, German, and Russian."
+        ),
+        "refs": "References",
     },
     {
-        "lang": "DEUTSCH",
+        "language": "Deutsch",
         "title": "Computergestützte Modellierung von Weberns op. 10",
-        "lead": "Eine forschungsbasierte generative Partiturumgebung für Max/MSP und bach",
-        "what_h": "Gegenstand des Projekts",
-        "what": (
-            "Der Patch erzeugt ein neues zwölftöniges Tonhöhenfeld, formt daraus kurze Motive und atmende instrumentale Gesten und erstellt eine zehnstimmige <i>bach.score</i>-Partitur im Ensembleklang von Anton Weberns <i>Fünf Stücken für Orchester op. 10</i>. "
-            "Das Ergebnis umfasst registerbewusste Instrumentation, Pausen, Dynamik, kurze Dynamikgabeln, Tempomodifikationen, Artikulation und instrumentengerechte Spieltechniken und lässt sich als MusicXML exportieren."
+        "subtitle": "Eine forschungsbasierte generative Partiturumgebung für Max/MSP und bach",
+        "abstract_h": "Zusammenfassung",
+        "abstract": (
+            "Das Projekt untersucht, wie analytische Aussagen zu Anton Weberns <i>Fünf Stücken für "
+            "Orchester op. 10</i> in ein explizites und überprüfbares generatives System übertragen werden "
+            "können. Ein Max/MSP-Patch erzeugt ein neues zwölftöniges Feld, gliedert es in kurze "
+            "Instrumentalphrasen und erstellt eine zehnstimmige <i>bach.score</i>-Partitur mit Dynamik, "
+            "Artikulation, Spieltechnik, Tempomodifikation und MusicXML-Export."
         ),
-        "method_h": "Modell statt Imitation",
+        "method_h": "Forschungsmethode",
         "method": (
-            "Das System beansprucht keine Rekonstruktion der historischen Person Webern. Es modelliert nachvollziehbare Präferenzen: knappe motivische Gruppen, verschobene Symmetrien, Zentraltöne ohne funktionale Tonalität, "
-            "vorübergehende Vordergrundinstrumente, Übergaben zwischen verwandten Farben, kurze Familienblöcke innerhalb der Klangfarbenmelodie, resonante Tremolofelder und deutlich verschiedene Formprofile der fünf Stücke. "
-            "Die globalen Aktivitäts- und Dynamikkurven bleiben frei editierbar."
+            "Das Modell trennt unmittelbar beobachtbare Partiturbefunde, analytische Deutungen und "
+            "numerische Heuristiken. Weberns Partitur liefert Besetzung, Register, Zeitproportionen und "
+            "Aufführungsvokabular. Reutter begründet Zentraltonverläufe, verschobene Symmetrien, "
+            "Dreitonzellen und instrumentale Korrespondenzen. Kholopova und Kholopov ordnen diese "
+            "Merkmale Weberns Formverdichtung und musikalischer Zeit zu. Die Vorträge liefern "
+            "<i>Faßlichkeit</i>, <i>Zusammenhang</i> und <i>Gliederung</i>; Zeller begründet das "
+            "Zusammenwirken von Klangfarbe, Tonhöhe, Register, Artikulation und Dynamik."
         ),
-        "grammar_h": "Aufführungs- und Notationsgrammatik",
-        "grammar": (
-            "Die Spielbarkeit wird vor der Notation geprüft: Bläser bleiben einstimmig; Dämpfer, Flatterzunge, pizzicato, arco und col legno erscheinen nur bei geeigneten Instrumenten; Technik und Artikulation gelten abschnittsweise statt für jeden Ton neu. "
-            "Agogische Angaben wie <i>zögernd</i>, <i>drängend</i> und <i>a tempo</i> werden global gesetzt. Mehrtönige Phrasengrenzen bleiben für standardkonforme MusicXML-Phrasierungsbögen erhalten."
+        "model_h": "Computergestützte Realisierung",
+        "model": (
+            "Die sichtbare Reihe erklingt wörtlich in den ersten zwölf Ereignissen. Danach wirken "
+            "satzspezifische Transformationen, Zentralfelder, Rhythmuszellen der Mikro-Phrasen, "
+            "temporärer Instrumentalfokus, Familiengruppierung und Klangfarbenmelodie. Instrumentbereiche "
+            "sind in normale und äußere Lagen geteilt; einstimmige Partien werden über vollständige "
+            "Dauern geprüft. Activity und Dynamics bestimmen Ereignisdichte und globale Dynamik. Kurze "
+            "Gabeln, globale Tempoobjekte, sparsame deutsche Charakterwörter, Phrasenmetadaten und "
+            "instrumentengerechte Techniken vervollständigen die Notation."
         ),
-        "callout": "Ziel: ein erklärbares Kompositionsinstrument — keine undurchsichtige Stilübertragung und kein Ersatz für die Lektüre von Weberns Partituren.",
+        "result_h": "Forschungsergebnis",
+        "result": (
+            "Version 6 umfasst sechs differenzierte Profile, einen reproduzierbaren Max-Patch, einen "
+            "internen Abhörsynthesizer, MusicXML-Bogenbearbeitung, außerhalb von Max geprüfte "
+            "Invarianten und parallele Dokumentation auf Englisch, Deutsch und Russisch."
+        ),
+        "refs": "Literatur",
     },
     {
-        "lang": "РУССКИЙ",
+        "language": "Русский",
         "title": "Компьютерное моделирование op. 10 Веберна",
-        "lead": "Исследовательски обоснованная генеративная среда для Max/MSP и bach",
-        "what_h": "Что делает проект",
-        "what": (
-            "Патч создаёт новый двенадцатитоновый звуковой материал, преобразует его в короткие мотивы и «дышащие» инструментальные жесты и строит десятистрочную партитуру <i>bach.score</i> для ансамблевого мира <i>Пяти пьес для оркестра op. 10</i> Антона Веберна. "
-            "Результат включает оркестровку с учётом регистров, паузы, динамику, короткие вилочки, агогику, штрихи и идиоматические приёмы; партитура экспортируется в MusicXML."
+        "subtitle": "Исследовательская генеративная среда для Max/MSP и bach",
+        "abstract_h": "Аннотация",
+        "abstract": (
+            "В проекте исследуется перевод аналитических положений о <i>Пяти пьесах для оркестра op. "
+            "10</i> Антона Веберна в явную и проверяемую генеративную систему. Патч Max/MSP создаёт "
+            "новое двенадцатитоновое поле, членит его на краткие инструментальные фразы и формирует "
+            "десятистрочную партитуру <i>bach.score</i> с динамикой, артикуляцией, исполнительскими "
+            "приёмами, темповыми отклонениями и экспортом MusicXML."
         ),
-        "method_h": "Модель, а не имитация",
+        "method_h": "Метод исследования",
         "method": (
-            "Система не претендует на реконструкцию исторической личности Веберна. Она моделирует проверяемые предпочтения: компактные мотивные группы, смещённую симметрию, центральные тоны без функциональной тональности, "
-            "временный инструментальный фокус, передачу идеи между родственными тембрами, краткие группировки семейств внутри Klangfarbenmelodie, резонансные поля тремоло и отчётливо разные формальные профили пяти пьес. "
-            "Пользователь сохраняет контроль над глобальными кривыми активности и динамики."
+            "В модели разграничены непосредственно наблюдаемые факты партитуры, аналитические "
+            "интерпретации и числовые эвристики. Партитура Веберна определяет состав, регистры, "
+            "временные пропорции и исполнительский словарь. Ройтер обосновывает центральные тоны, "
+            "смещённые симметрии, трёхзвучные ячейки и инструментальные соответствия. Холопова и "
+            "Холопов связывают эти свойства со сжатием формы и музыкальным временем Веберна. Лекции "
+            "вводят категории <i>Faßlichkeit</i>, <i>Zusammenhang</i> и <i>Gliederung</i>; исследование "
+            "Зеллера обосновывает взаимосвязь тембра, высоты, регистра, артикуляции и динамики."
         ),
-        "grammar_h": "Исполнительская и нотационная грамматика",
-        "grammar": (
-            "Исполнимость проверяется до записи: духовые остаются одноголосными; сурдина, Flatterzunge, pizzicato, arco и col legno назначаются только подходящим инструментам; техника и штрих сохраняются на протяжении раздела, а не меняются на каждой ноте. "
-            "Обозначения <i>zögernd</i>, <i>drängend</i> и <i>a tempo</i> задаются на уровне всей партитуры. Границы многозвучных фраз сохраняются для стандартного преобразования в лиги MusicXML."
+        "model_h": "Компьютерная реализация",
+        "model": (
+            "Показанный ряд буквально звучит в первых двенадцати событиях. Далее действуют профильные "
+            "преобразования, центральные поля, ритмические ячейки микро-фраз, временный тембровый "
+            "фокус, группировка семейств и Klangfarbenmelodie. Диапазоны разделены на обычную и "
+            "внешнюю зоны; одноголосные партии проверяются по полным длительностям. Кривые Activity и "
+            "Dynamics задают плотность и глобальную динамическую форму. Короткие вилочки, глобальные "
+            "объекты темпа, редкие немецкие обозначения характера, фразовые метаданные и идиоматические "
+            "приёмы завершают нотную запись."
         ),
-        "callout": "Цель: объяснимый композиторский инструмент — не «чёрный ящик» переноса стиля и не замена чтению партитур Веберна.",
+        "result_h": "Результат исследования",
+        "result": (
+            "Версия 6 включает шесть различных профилей, воспроизводимый Max-патч, встроенный "
+            "синтезатор для прослушивания, обработку лиг MusicXML, тестируемые вне Max инварианты и "
+            "параллельную документацию на английском, немецком и русском языках."
+        ),
+        "refs": "Литература и источники",
     },
 ]
 
 
-def footer(canvas, doc):
-    canvas.saveState()
-    canvas.setStrokeColor(HexColor("#C9D0D5"))
-    canvas.line(22 * mm, 17 * mm, 188 * mm, 17 * mm)
-    canvas.setFont("DejaVu", 6.8)
-    canvas.setFillColor(MUTED)
-    canvas.drawString(22 * mm, 11.5 * mm, "Sources: Webern op. 10 score; Webern, Der Weg zur neuen Musik; Reutter; Kholopova & Kholopov; Zeller; Cook/Stadlen.")
-    canvas.drawRightString(188 * mm, 11.5 * mm, f"{doc.page} / 3")
-    canvas.restoreState()
+def draw_paragraph(c, text, paragraph_style, y, width=WIDTH, x=LEFT):
+    paragraph = Paragraph(text, paragraph_style)
+    _, height = paragraph.wrap(width, H)
+    paragraph.drawOn(c, x, y - height)
+    return y - height
 
 
-def make_page(data):
-    story = [
-        Paragraph(data["lang"], KICKER),
-        Paragraph(data["title"], TITLE),
-        Paragraph(data["lead"], pstyle("Lead" + data["lang"], 11.2, 16, BLUE, False, 7 * mm)),
-        Paragraph(data["what_h"], HEAD),
-        Paragraph(data["what"], BODY),
-        Spacer(1, 2 * mm),
-        Paragraph(data["method_h"], HEAD),
-        Paragraph(data["method"], BODY),
-        Spacer(1, 2 * mm),
-        Paragraph(data["grammar_h"], HEAD),
-        Paragraph(data["grammar"], BODY),
-        Spacer(1, 7 * mm),
-    ]
-    callout = Table([[Paragraph(data["callout"], CALLOUT)]], colWidths=[164 * mm])
-    callout.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, -1), PALE),
-        ("BOX", (0, 0), (-1, -1), 0.7, HexColor("#BFCBD2")),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6 * mm),
-        ("RIGHTPADDING", (0, 0), (-1, -1), 6 * mm),
-        ("TOPPADDING", (0, 0), (-1, -1), 4 * mm),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4 * mm),
-    ]))
-    story.append(callout)
-    return story
+def draw_page(c, data, number):
+    y = H - 20 * mm
+    y = draw_paragraph(c, data["title"], TITLE, y)
+    y -= 1.5 * mm
+    y = draw_paragraph(c, data["subtitle"], SUBTITLE, y)
+    y -= 2.3 * mm
+    y = draw_paragraph(c, "Dmitrii Shchukin · 2026", AUTHOR, y)
+    y -= 4 * mm
+    c.setStrokeColorRGB(0, 0, 0)
+    c.setLineWidth(0.55)
+    c.line(LEFT, y, W - RIGHT, y)
+    y -= 5 * mm
+
+    for heading_key, body_key, body_style in [
+        ("abstract_h", "abstract", ABSTRACT),
+        ("method_h", "method", BODY),
+        ("model_h", "model", BODY),
+        ("result_h", "result", BODY),
+    ]:
+        y = draw_paragraph(c, data[heading_key], HEAD, y)
+        y -= 0.8 * mm
+        y = draw_paragraph(c, data[body_key], body_style, y)
+        y -= 1.5 * mm
+
+    reference_top = 67 * mm
+    if y < reference_top + 3 * mm:
+        raise RuntimeError(f"Page {number} body overlaps bibliography")
+    c.line(LEFT, reference_top + 5 * mm, W - RIGHT, reference_top + 5 * mm)
+    ref_y = reference_top + 1.5 * mm
+    ref_y = draw_paragraph(c, data["refs"], REFHEAD, ref_y)
+    ref_y -= 1.2 * mm
+    for entry in REFERENCES:
+        ref_y = draw_paragraph(c, "• " + entry, REF, ref_y)
+        ref_y -= 0.55 * mm
+
+    footer = f"(c) Dmitrii Shchukin 2026    ·    {data['language']}    ·    {number} / 3"
+    draw_paragraph(c, footer, FOOT, 13 * mm, x=LEFT)
+    c.showPage()
 
 
 def main():
     OUT.parent.mkdir(parents=True, exist_ok=True)
-    doc = SimpleDocTemplate(
-        str(OUT), pagesize=A4,
-        leftMargin=22 * mm, rightMargin=22 * mm,
-        topMargin=20 * mm, bottomMargin=23 * mm,
-        title="Computational Modeling of Webern's Op. 10 - Project Description",
-        author="dschkn",
+    c = canvas.Canvas(
+        str(OUT),
+        pagesize=A4,
+        pageCompression=1,
+        title="Computational Modeling of Webern's Op. 10",
+        author="Dmitrii Shchukin",
+        subject="Research project description in English, German, and Russian",
     )
-    story = []
-    for index, page in enumerate(PAGES):
-        if index:
-            story.append(PageBreak())
-        story.extend(make_page(page))
-    doc.build(story, onFirstPage=footer, onLaterPages=footer)
+    c.setTitle("Computational Modeling of Webern's Op. 10")
+    c.setAuthor("Dmitrii Shchukin")
+    c.setCreator("Dmitrii Shchukin")
+    c.setSubject("Research project description in English, German, and Russian")
+    for number, data in enumerate(PAGES, start=1):
+        draw_page(c, data, number)
+    c.save()
     print(OUT)
 
 

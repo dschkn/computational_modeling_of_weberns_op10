@@ -1,5 +1,6 @@
 /*
  * von Webern generator - Max classic JavaScript (ES5)
+ * (c) Dmitrii Shchukin 2026
  *
  * One engine owns material, time, register, orchestration and score decoration.
  * The generated row is a twelve-tone material bank. In the op.10 profiles the
@@ -51,6 +52,32 @@ var FLATTER_VOICES = [1, 2, 3];
 var STRING_VOICES = [8, 9, 10];
 
 /*
+ * Group-level rhythmic cells.  A cell belongs to a micro-phrase rather than
+ * to an instrument: this prevents the same neutral sixteenth-note pattern
+ * from being stamped onto several unrelated voices.  Homorhythmic blocks are
+ * the sole deliberate exception and remain short, score-level events.
+ */
+var RHYTHM_CELLS = {
+    quiet: [
+        [2, 0.75, 1.5], [1.5, 0.5, 2], [3, 0.75, 1],
+        [2, 1 / 3, 2 / 3, 1.5], [1, 2, 0.75]
+    ],
+    medium: [
+        [0.75, 0.5, 1], [1, 1 / 3, 2 / 3], [0.5, 1.5, 0.75],
+        [2 / 3, 0.5, 1.25], [0.5, 0.75, 1 / 3, 1]
+    ],
+    active: [
+        [0.25, 0.5, 1 / 3, 0.75], [1 / 3, 2 / 3, 0.25, 0.5],
+        [0.5, 0.25, 0.75, 1 / 3], [0.25, 0.25, 2 / 3, 0.5, 1 / 3],
+        [0.75, 1 / 3, 0.25, 2 / 3]
+    ],
+    slowfield: [
+        [2, 0.75, 1.5], [1.5, 3, 1], [2.5, 0.5, 1],
+        [1, 2.5, 0.75], [3, 0.5, 1.5]
+    ]
+};
+
+/*
  * Score words are divided by function.  Tempo words are emitted as global
  * bach.score markers; expression words are sparse, local phrase directions;
  * playing techniques are emitted only when a playable state changes.
@@ -88,7 +115,7 @@ var FALLBACK_PROFILES = [
     { id: "op10-synthesis", baseTempo: 60, activity: [[0, 0.28], [0.42, 0.48], [0.7, 0.34], [1, 0.22]], dynamics: [[0, 0.18], [0.55, 0.46], [0.76, 0.34], [1, 0.2]], registerCurve: [[0, 0.34], [0.45, 0.64], [1, 0.32]], phraseSizes: [2, 3, 3, 4], focusPersistence: 0.68, homorhythmProbability: 0.14, pedalProbability: 0.08, registerRisk: 0.08, centralPath: [], formalAxis: 0.58, symmetryStrength: 0.58, axisVoices: [3, 4], initialMarking: "ruhig, zart", tempoPlan: [[0, 1, "ruhig"], [0.58, 0.9, "zögernd"], [0.72, 1, "a tempo"]], closure: "external" },
     { id: "op10-i", baseTempo: 50, activity: [[0, 0.2], [0.44, 0.48], [0.63, 0.42], [1, 0.12]], dynamics: [[0, 0.08], [0.5, 0.25], [1, 0.1]], registerCurve: [[0, 0.36], [0.5, 0.7], [1, 0.34]], phraseSizes: [2, 3, 3, 4], focusPersistence: 0.74, homorhythmProbability: 0.1, pedalProbability: 0.05, registerRisk: 0.05, centralPath: [11, 8, 5], openingVoices: [1, 6, 9], formalAxis: 0.5, symmetryStrength: 0.95, axisVoices: [3, 4], focalPitchClass: 8, focalVoices: [5], initialMarking: "Sehr ruhig und zart", tempoPlan: [[0, 1, "Sehr ruhig"], [0.46, 0.84, "zögernd"], [0.58, 1, "a tempo"]], closurePitchClass: 5, closure: "timbral-palindrome-and-tritone" },
     { id: "op10-ii", baseTempo: 100, activity: [[0, 0.46], [0.35, 0.58], [0.72, 0.7], [1, 0.94]], dynamics: [[0, 0.18], [0.5, 0.46], [0.82, 0.78], [1, 1]], registerCurve: [[0, 0.36], [0.36, 0.55], [0.72, 0.66], [1, 0.82]], phraseSizes: [3, 4, 5, 6], focusPersistence: 0.78, homorhythmProbability: 0.3, pedalProbability: 0.06, registerRisk: 0.2, centralPath: [], formalAxis: 0.58, symmetryStrength: 0.42, axisVoices: [3, 4], initialMarking: "Lebhaft und zart bewegt · drängend", tempoPlan: [[0, 1, "drängend"], [0.25, 0.9, "poco rit."], [0.38, 1, "a tempo"], [0.62, 0.86, "zögernd"], [0.72, 1, "a tempo"], [0.84, 1.44, "rasch"]], closure: "rhythmic-clarification" },
-    { id: "op10-iii", baseTempo: 40, activity: [[0, 0.12], [0.48, 0.2], [0.72, 0.3], [1, 0.12]], dynamics: [[0, 0.06], [0.58, 0.3], [0.78, 0.42], [1, 0.1]], registerCurve: [[0, 0.58], [0.55, 0.74], [1, 0.56]], phraseSizes: [3, 4, 4, 5], focusPersistence: 0.72, homorhythmProbability: 0.22, pedalProbability: 0.58, pedalVoices: [5, 6, 7, 8, 9, 10], registerRisk: 0.04, centralPath: [4], formalAxis: 0.55, symmetryStrength: 0.66, focalPitchClass: 4, focalVoices: [5, 6, 7], initialMarking: "Sehr langsam und äußerst ruhig", tempoPlan: [[0, 1, "äußerst ruhig"], [0.68, 0.9, "zögernd"], [0.82, 1, "a tempo"]], closure: "high-resonant-focal-field" },
+    { id: "op10-iii", baseTempo: 40, activity: [[0, 0.12], [0.48, 0.2], [0.72, 0.3], [1, 0.12]], dynamics: [[0, 0.06], [0.58, 0.3], [0.78, 0.42], [1, 0.1]], registerCurve: [[0, 0.58], [0.55, 0.74], [1, 0.56]], phraseSizes: [2, 3, 3, 4], focusPersistence: 0.72, homorhythmProbability: 0.14, pedalProbability: 0.42, pedalVoices: [5, 6, 7, 8, 9, 10], registerRisk: 0.04, centralPath: [4], formalAxis: 0.55, symmetryStrength: 0.66, focalPitchClass: 4, focalVoices: [5, 6, 7], initialMarking: "Sehr langsam und äußerst ruhig", tempoPlan: [[0, 1, "äußerst ruhig"], [0.68, 0.9, "zögernd"], [0.82, 1, "a tempo"]], closure: "high-resonant-focal-field" },
     { id: "op10-iv", baseTempo: 60, activity: [[0, 0.32], [0.46, 0.48], [0.72, 0.28], [1, 0.12]], dynamics: [[0, 0.1], [0.52, 0.3], [1, 0.08]], registerCurve: [[0, 0.46], [0.5, 0.34], [1, 0.7]], phraseSizes: [3, 3, 3, 2], focusPersistence: 0.82, homorhythmProbability: 0.18, pedalProbability: 0.08, registerRisk: 0.06, centralPath: [9, 10], formalAxis: 0.62, symmetryStrength: 0.86, silenceAxes: [0.62], focalPitchClass: 9, focalVoices: [2, 9], gestureContour: [1, 1, -1], responseContour: [-1, -1, 1], initialMarking: "Fließend, äußerst zart", tempoPlan: [[0, 1, "Fließend"], [0.48, 0.82, "Zeit lassen"], [0.62, 1, "a tempo"]], closure: "gesture-inversion-and-return-of-colour" },
     { id: "op10-v", baseTempo: 152, activity: [[0, 0.62], [0.48, 0.8], [0.62, 1], [0.76, 0.3], [1, 0.08]], dynamics: [[0, 0.34], [0.5, 0.72], [0.62, 1], [0.8, 0.16], [1, 0.04]], registerCurve: [[0, 0.46], [0.58, 0.86], [0.76, 0.38], [1, 0.22]], phraseSizes: [3, 4, 5, 6], focusPersistence: 0.76, homorhythmProbability: 0.4, pedalProbability: 0.16, registerRisk: 0.2, centralPath: [], formalAxis: 0.58, symmetryStrength: 0.48, initialMarking: "Sehr fließend", tempoPlan: [[0, 1, "Sehr fließend"], [0.32, 1.08, "drängend"], [0.5, 0.92, "poco rit."], [0.62, 1, "a tempo"], [0.76, 0.74, "ruhig"], [0.86, 0.86, "etwas drängend"], [0.94, 0.68, "molto rit."]], closurePitchClasses: [2, 3], closure: "reminiscence-and-epilogue" }
 ];
@@ -196,7 +223,7 @@ function generate() {
     var actualSeed = normalizeSeed(config.seed + generationCounter * 7919 + config.profileIndex * 101);
     seedRandom(actualSeed);
     generationCounter++;
-    currentRow = chooseRow();
+    currentRow = normalizeRowForProfile(chooseRow(), activeProfile());
     generatedEvents = buildEvents(currentRow, activeProfile());
 
     outlet(0, ["clear"]);
@@ -265,6 +292,7 @@ function buildEvents(row, profileData) {
     var groupPlan = null;
     var markingState = { techniques: {}, flags: {}, expressionGroups: {}, usedWords: {} };
     var sectionPlans = buildSectionPlans(profileData);
+    var recentRhythmSignatures = [];
 
     for (var i = 0; i < config.eventCount; i++) {
         var t = config.eventCount === 1 ? 0 : i / (config.eventCount - 1);
@@ -274,8 +302,13 @@ function buildEvents(row, profileData) {
             groupPosition = 0;
             groupPlan = chooseGroupPlan(
                 profileData, t, groupIndex, groupSize, previousVoice,
-                recentVoices, i, onsetBeats
+                recentVoices, i, onsetBeats, recentRhythmSignatures
             );
+            if (groupPlan.texture === "pedal-tremolo") {
+                groupSize = Math.min(groupSize, 3);
+            }
+            recentRhythmSignatures.push(groupPlan.rhythmSignature);
+            if (recentRhythmSignatures.length > 3) { recentRhythmSignatures.shift(); }
             groupPlan.sectionStyle = sectionPlans[Math.min(sectionPlans.length - 1,
                 Math.floor(t * sectionPlans.length))];
         }
@@ -294,7 +327,7 @@ function buildEvents(row, profileData) {
         // installs a characteristic default curve in the UI; user edits then
         // remain authoritative instead of being silently profile-limited.
         var dynamicValue = interpolate(config.dynamicPoints, t);
-        var pitchClass = groupPlan.texture === "pedal-tremolo" && profileData.focalPitchClass !== undefined ?
+        var pitchClass = (i >= 12 && groupPlan.texture === "pedal-tremolo" && profileData.focalPitchClass !== undefined) ?
             profileData.focalPitchClass : pitchClassForEvent(row, profileData, i, t);
         var role = formalRole(profileData, t, groupInfo, pitchClass);
         var breathPhase = (groupPosition + 1) / (groupSize + 1);
@@ -346,6 +379,7 @@ function buildEvents(row, profileData) {
             groupPosition: groupPosition,
             groupSize: groupSize,
             groupTexture: groupPlan.texture,
+            rhythmSignature: groupPlan.rhythmSignature,
             phraseFocus: groupPlan.focusVoice,
             sectionIndex: groupPlan.sectionStyle.index,
             technique: groupPlan.sectionStyle.techniques[voice],
@@ -379,7 +413,9 @@ function buildEvents(row, profileData) {
     }
 
     applyClosures(result, profileData);
+    capPedalConcurrency(result, beatMs);
     enforceMonophonicOnsets(result);
+    enforceMonophonicLines(result, beatMs);
     sanitizeTechniqueGrammar(result);
     applyPhrasePlans(result);
     return result;
@@ -448,7 +484,7 @@ function chooseGroupSize(profileData, t) {
     return options[Math.floor(random01() * options.length)];
 }
 
-function chooseGroupPlan(profileData, t, groupIndex, groupSize, previousVoice, recentVoices, eventIndex, onsetBeats) {
+function chooseGroupPlan(profileData, t, groupIndex, groupSize, previousVoice, recentVoices, eventIndex, onsetBeats, recentRhythmSignatures) {
     var pedalChance = profileData.pedalProbability || 0;
     var syncChance = profileData.homorhythmProbability || 0;
     if (profileData.id === "op10-ii" && t > 0.65) {
@@ -462,7 +498,7 @@ function chooseGroupPlan(profileData, t, groupIndex, groupSize, previousVoice, r
     }
 
     var texture = "solo-line";
-    if (profileData.id === "op10-iii" && random01() < pedalChance) {
+    if (profileData.id === "op10-iii" && eventIndex >= 12 && random01() < pedalChance) {
         texture = "pedal-tremolo";
     } else if (random01() < syncChance) {
         texture = "homorhythm";
@@ -487,15 +523,18 @@ function chooseGroupPlan(profileData, t, groupIndex, groupSize, previousVoice, r
         focusDecision.reason = "movement III resonant pedal carrier";
     }
 
+    var rhythmCell = chooseRhythmCell(profileData, t, recentRhythmSignatures || []);
     return {
         index: groupIndex,
         texture: texture,
-        synchronized: texture === "homorhythm" || texture === "pedal-tremolo",
+        synchronized: texture === "homorhythm",
         focusVoice: focusDecision.voice,
         focusReason: focusDecision.reason,
         echoVoice: 0,
         startBeats: onsetBeats,
         sharedDuration: null,
+        rhythmCell: rhythmCell,
+        rhythmSignature: rhythmSignature(rhythmCell),
         leader: null,
         usedVoices: []
     };
@@ -717,6 +756,10 @@ function scoreRow(row) {
 }
 
 function pitchClassForEvent(row, profileData, eventIndex, t) {
+    /* The displayed row is literally the first aggregate heard in the score. */
+    if (eventIndex < 12) {
+        return row[eventIndex];
+    }
     var cycle = Math.floor(eventIndex / 12);
     var formIndex = mod(cycle + config.profileIndex, 4);
     var form = rowForm(row, formIndex);
@@ -731,6 +774,39 @@ function pitchClassForEvent(row, profileData, eventIndex, t) {
         transposition = mod(cycle * 5, 12);
     }
     return mod(form[localIndex] + transposition, 12);
+}
+
+function normalizeRowForProfile(row, profileData) {
+    if (profileData.id !== "op10-i") {
+        return row;
+    }
+    var transposition = mod(11 - row[0], 12);
+    var normalized = [];
+    for (var i = 0; i < row.length; i++) {
+        normalized.push(mod(row[i] + transposition, 12));
+    }
+    return normalized;
+}
+
+function chooseRhythmCell(profileData, t, recentSignatures) {
+    var activityValue = interpolate(profileData.activity, t);
+    var category = profileData.id === "op10-iii" ? "slowfield" :
+        (activityValue < 0.26 ? "quiet" : (activityValue > 0.68 ? "active" : "medium"));
+    var pool = RHYTHM_CELLS[category];
+    var candidates = [];
+    for (var i = 0; i < pool.length; i++) {
+        if (recentSignatures.indexOf(rhythmSignature(pool[i])) < 0) {
+            candidates.push(pool[i]);
+        }
+    }
+    if (candidates.length === 0) { candidates = pool; }
+    return candidates[Math.floor(random01() * candidates.length)].slice(0);
+}
+
+function rhythmSignature(cell) {
+    var tokens = [];
+    for (var i = 0; i < cell.length; i++) { tokens.push(round3(cell[i])); }
+    return tokens.join(":");
 }
 
 function rowForm(row, formIndex) {
@@ -931,8 +1007,10 @@ function motifDirection(profileData, groupInfo) {
 }
 
 function chooseDurationBeats(activityValue, profileData, t, groupInfo, mirrorEvent, groupPlan) {
-    if (groupPlan && groupPlan.texture === "pedal-tremolo") {
-        return [2, 3, 4, 5][Math.floor(random01() * 4)];
+    if (groupPlan && groupPlan.rhythmCell && groupPlan.rhythmCell.length) {
+        if (groupPlan.texture === "pedal-tremolo" || !mirrorEvent || random01() > config.coherence * 0.22) {
+            return groupPlan.rhythmCell[groupInfo.position % groupPlan.rhythmCell.length];
+        }
     }
     if (mirrorEvent && random01() < config.coherence * (1 - config.metamorphosis * 0.45)) {
         return mirrorEvent.durationBeats;
@@ -968,7 +1046,9 @@ function chooseInterOnsetBeats(durationBeats, activityValue, profileData, t, gro
     var silenceFactor = 0.68 + config.silence * 1.42;
     var desired = durationBeats * overlapFactor * silenceFactor;
 
-    if (groupPlan && groupPlan.texture === "solo-line" && groupInfo.position < groupInfo.size - 1) {
+    if (groupPlan && groupPlan.texture === "pedal-tremolo") {
+        desired = durationBeats * (0.58 + random01() * 0.24);
+    } else if (groupPlan && groupPlan.texture === "solo-line" && groupInfo.position < groupInfo.size - 1) {
         desired *= 0.48 + (1 - config.lyricism) * 0.22;
     } else if (groupPlan && (groupPlan.texture === "exchange" || groupPlan.texture === "echo") &&
             groupInfo.position < groupInfo.size - 1) {
@@ -1186,6 +1266,61 @@ function enforceMonophonicOnsets(events) {
             event.decisionReason += "; monophonic playability reassignment";
             key = event.voice + ":" + round3(event.onsetBeats);
             occupied[key] = 1;
+        }
+    }
+}
+
+function capPedalConcurrency(events, beatMs) {
+    var pedals = [];
+    for (var i = 0; i < events.length; i++) {
+        if (events[i].groupTexture === "pedal-tremolo") { pedals.push(events[i]); }
+    }
+    pedals.sort(function (a, b) { return a.onsetBeats - b.onsetBeats; });
+    for (var index = 0; index < pedals.length; index++) {
+        var current = pedals[index];
+        var active = [];
+        for (var earlier = 0; earlier < index; earlier++) {
+            if (pedals[earlier].onsetBeats + pedals[earlier].durationBeats > current.onsetBeats) {
+                active.push(pedals[earlier]);
+            }
+        }
+        while (active.length >= 3) {
+            active.sort(function (a, b) {
+                return (a.onsetBeats + a.durationBeats) - (b.onsetBeats + b.durationBeats);
+            });
+            var closing = active.shift();
+            closing.durationBeats = Math.max(0.125, (current.onsetBeats - closing.onsetBeats) * 0.92);
+            closing.durationMs = closing.durationBeats * beatMs;
+            closing.decisionReason += "; pedal-layer density closure";
+        }
+    }
+}
+
+/*
+ * Quantization can turn two different attacks into an apparent wind chord if
+ * the earlier duration continues beyond the next attack.  This second pass
+ * therefore enforces monody over complete sounding intervals, not merely at
+ * identical onset keys.
+ */
+function enforceMonophonicLines(events, beatMs) {
+    for (var voice = 1; voice <= INSTRUMENTS.length; voice++) {
+        if (!INSTRUMENTS[voice - 1].monophonic) { continue; }
+        var line = [];
+        for (var i = 0; i < events.length; i++) {
+            if (events[i].voice === voice) { line.push(events[i]); }
+        }
+        line.sort(function (a, b) {
+            return a.onsetBeats === b.onsetBeats ? a.index - b.index : a.onsetBeats - b.onsetBeats;
+        });
+        for (var j = 0; j + 1 < line.length; j++) {
+            var current = line[j];
+            var next = line[j + 1];
+            var available = next.onsetBeats - current.onsetBeats;
+            if (available > 0 && current.durationBeats > available) {
+                current.durationBeats = Math.max(0.125, available * 0.92);
+                current.durationMs = current.durationBeats * beatMs;
+                current.decisionReason += "; monophonic duration closure";
+            }
         }
     }
 }

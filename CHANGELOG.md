@@ -1,55 +1,59 @@
-# История версий
+# Revision History / Revisionsgeschichte / История редакций
 
-## 4.0.0 — Breathing Score
+Copyright (c) Dmitrii Shchukin 2026
 
-- диапазон каждого инструмента разделён на физическую и комфортную полосы;
-  крайний регистр допускается преимущественно у формальной оси/вершины;
-- введены микро-фразы `solo-line`, `exchange`, `echo`, синхронные блоки и
-  комбинированная тремоло-педаль III;
-- пять пьес получили разный BPM, Activity/Dynamics, размер фраз, синхронность,
-  регистровый риск, фактурную форму и план агогики;
-- `Generate Material` создаёт новый ряд при каждом нажатии; повторный ввод Seed
-  воспроизводит начало последовательности;
-- `Build Score` всегда заново снимает обе линии, генерирует материал и
-  пересобирает партитуру;
-- Dynamics имеет буквальные оси `x = время`, `y = pppp…fff`, без скрытого
-  профильного потолка;
-- добавлены tempo objects и ремарки `zögernd`, `a tempo`, `drängend`,
-  `poco/molto rit.`, `rasch`, `ruhig`;
-- annotation-slot 24 выводит `dolce/dolcissimo`, `espress.`, `deutlich`,
-  `wie ein Hauch`, сурдины, `Flatterzunge`, `col legno`, мягкий молоточек и
-  резонансные указания; текст экспортируется через MusicXML directions;
-- штрихи теперь следуют фактурной роли: staccatissimo/accent для блоков,
-  tremolo/trill для педалей, portato для связных микро-фраз;
-- тесты проверяют новый ряд, диапазоны, удержание фокуса, различие движений,
-  педаль III, оси Dynamics и полный refresh Build.
+## English
 
-## 3.0.1 — исправление маршрутизации выходов
+### 6.0.0 - Authored Research Edition
 
-- выходы `p webern.core` получили явные индексы: `score = 1`, `row = 2`,
-  `status = 3`;
-- исправлена ошибка, при которой названия высот ряда (`D`, `F`, `B` и т. п.)
-  попадали в `bach.score`, а готовая партитура — в строку статуса;
-- валидатор теперь проверяет и внутренний порядок `outlet`, и три внешних
-  соединения субпатча.
-- `bach.roll` и `bach.score` сохранены с форматом объекта 0.8.2 для
-  совместимости с установленной у автора версией 0.8.2.0 beta; 0.8.3 также
-  поддерживается.
+- the displayed row is now the first aggregate realized in the score;
+- monophonic playability is enforced over complete durations;
+- group-level rhythmic cells avoid adjacent repetition;
+- movement III uses staggered pedal groups of no more than three carriers;
+- `bach.score` playout feeds a bundled polyphonic MSP audition voice;
+- Presentation Mode panels are non-intercepting backgrounds, and the score
+  viewport is enlarged;
+- the research notes now have parallel English, German, and Russian editions;
+- authorship, citation metadata, licence language, and the scholarly project
+  paper identify Dmitrii Shchukin as the author of the research.
 
-## 3.0.0 — Webern Persona Score
+Earlier revisions established the native `bach.quantize` to `bach.score` path,
+movement profiles, register discipline, phrase metadata, short local hairpins,
+global tempo objects, and MusicXML postprocessing.
 
-- исправлен тракт `Build Score`: native `llll` теперь поступает из
-  `bach.quantize` прямо в `bach.score`, а служебная ветвь запускается только
-  после передачи партитуры;
-- добавлены диагностические состояния `quantize_requested`,
-  `score_data_received` и `score_ready`;
-- основной патч и движок получили новые имена, чтобы Max не подхватывал
-  старые файлы из кэша или Search Path;
-- добавлены шесть параметров Persona: Coherence, Metamorphosis, Timbral
-  contrast, Symmetry, Silence и Lyrical breath;
-- введены мотивные группы, формальные роли, смещённые зеркальные партнёры,
-  профильные центральные тоны и объяснимый выбор тембра;
-- расширены профили пяти пьес op. 10 по Ройтеру, Холоповым, Matthew Zeller и
-  Joshua Ballance;
-- добавлены PDF-портрет, карта источников, проверка структуры патча и
-  MusicXML-валидатор.
+## Deutsch
+
+### 6.0.0 - Autorisierte Forschungsausgabe
+
+- die sichtbare Reihe entspricht dem ersten Aggregat der Partitur;
+- Einstimmigkeit wird über die vollständigen Dauern geprüft;
+- gruppenbezogene Rhythmuszellen vermeiden unmittelbare Wiederholung;
+- Satz III verwendet versetzte Pedalgruppen mit höchstens drei Trägern;
+- der Playout von `bach.score` speist eine mitgelieferte polyphone MSP-Stimme;
+- Panels sind nicht-interzeptierende Hintergründe, der Partiturausschnitt ist
+  vergrößert;
+- die Forschungsnotizen liegen parallel auf Englisch, Deutsch und Russisch vor;
+- Autorschaft, Zitationsdaten, Lizenz und Projektaufsatz nennen Dmitrii Shchukin
+  als Urheber der Forschung.
+
+Frühere Fassungen etablierten den nativen Weg von `bach.quantize` zu
+`bach.score`, Satzprofile, Registerkontrolle, Phrasenmetadaten, kurze lokale
+Gabeln, globale Tempoobjekte und die MusicXML-Nachbearbeitung.
+
+## Русский
+
+### 6.0.0 - Авторская исследовательская редакция
+
+- показанный ряд соответствует первому агрегату партитуры;
+- одноголосность проверяется по полным длительностям;
+- групповые ритмические ячейки не повторяются подряд;
+- в III используются смещённые педальные группы не более чем из трёх носителей;
+- playout `bach.score` направлен во встроенный полифонический MSP-синтез;
+- панели переведены на неактивный задний план, окно партитуры увеличено;
+- заметки представлены параллельно на английском, немецком и русском языках;
+- авторство, метаданные цитирования, лицензия и академическое описание
+  закрепляют исследование за Dmitrii Shchukin.
+
+В предыдущих редакциях были созданы нативный тракт `bach.quantize` -
+`bach.score`, профили частей, регистровая дисциплина, фразовые метаданные,
+короткие локальные вилочки, глобальные объекты темпа и обработка MusicXML.

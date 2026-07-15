@@ -1,5 +1,7 @@
 #!/usr/bin/env node
 
+/* (c) Dmitrii Shchukin 2026 */
+
 /*
  * Converts hidden slot-25 phrase boundary directions exported by bach.score
  * into standard MusicXML <slur> notations.  bach 0.8.2 draws/exports internal
@@ -58,4 +60,3 @@ while (true) {
 
 fs.writeFileSync(target, xml);
 console.log(`Added ${converted} phrase-slur boundaries: ${target}`);
-

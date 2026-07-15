@@ -1,190 +1,63 @@
-# Webern Persona Score
+# Computational Modeling of Webern's Op. 10
 
-Самостоятельный инструмент для Max/MSP и `bach`, создающий
-исследовательски обоснованный эскиз партитуры по материалам Антона Веберна и
-аналитике Пяти пьес для оркестра op. 10.
+Copyright (c) Dmitrii Shchukin 2026
 
-![Интерфейс патча](docs/webernPersona-ui-preview.png)
+This research software generates a ten-staff `bach.score` in Max/MSP from a
+new twelve-tone pitch row and a transparent set of analytical constraints. Its
+principal reference is Anton Webern's *Five Pieces for Orchestra*, op. 10; the
+model also draws on Webern's lectures, Hans Peter Reutter's analysis, the
+monograph by Valentina Kholopova and Yuri Kholopov, and recent scholarship on
+Klangfarbenmelodie.
 
-## Результат
+![Presentation Mode interface](docs/webernPersona-ui-preview.png)
 
-Патч выполняет полный цикл:
+## Scope
 
-```text
-случайный 12-тоновый ряд
-→ высота, регистр, длительность и оркестровка
-→ скрытый bach.roll
-→ bach.quantize
-→ десятистрочный bach.score
-→ динамика, короткие вилочки, фразовая/секционная артикуляция, глобальная агогика
-→ MusicXML
-```
+The generator coordinates pitch, instrumental register, micro-phrase,
+rhythmic cell, temporary timbral focus, dynamics, articulation, playing
+technique, tempo inflection, and short local hairpins. The six profiles comprise
+one op. 10 synthesis and five differentiated movement models. The displayed
+row is the first aggregate realized in the score.
 
-В рабочей версии больше нет старых `coll`, `urn`, разрозненных счётчиков,
-абсолютных путей и нескольких несогласованных JavaScript-файлов. Вся
-композиционная логика находится в одном движке; технический тракт
-собран в компактном субпатче `p webern.core`.
+The project is an analytical composition instrument, not a claim to reproduce
+the historical person Anton Webern.
 
-## Требования
+## Requirements and use
 
-- Max 8.6 или новее;
-- пакет `bach` 0.8.2.0 или новее; актуальная
-  [версия 0.8.3](https://cycling74.com/packages/bach) рекомендуется.
+- Max 8.6 or later;
+- `bach` 0.8.2 or later.
 
-Версия 5 использует новые имена патча и движка. Это намеренно исключает
-ситуацию, когда Max находит одноимённый JavaScript из предыдущей сборки в
-Search Path.
+Open `max/WebernPersona.maxpat`, choose a profile and parameters, edit the
+Activity/Time and Dynamics/Time curves, and select **Generate Material** or
+**Build Score**. Every Build operation captures the current curves and produces
+a fresh realization. **Play** uses the bundled MSP audition voice; **Export
+XML** writes MusicXML.
 
-## Запуск
-
-1. Открыть `max/WebernPersona.maxpat`. Патч сразу откроется в Presentation Mode.
-2. Выбрать профиль, `Seed`, число событий, BPM, плотность и параметры Persona.
-3. Нарисовать две кривые:
-   - **Activity / Time**: низко — медленнее и просторнее, высоко — быстрее;
-   - **Dynamics / Time**: слева направо идёт время, снизу вверх — точный
-     диапазон `pppp → fff`.
-4. Нажать **1 Generate Material**.
-5. Нажать **2 Build Score**.
-6. Проверить партитуру и нажать **Export XML**.
-7. Для стандартных фразировочных лиг выполнить:
+For standard multi-note phrase slurs after export:
 
 ```sh
 node tools/add_phrase_slurs.js exported.musicxml
 ```
 
-Команда создаёт `exported-with-slurs.musicxml`; исходный файл остаётся нетронутым.
+## Repository
 
-Каждое нажатие **Generate Material** создаёт новый ряд; `Seed` определяет
-воспроизводимую последовательность генераций, а не навечно фиксирует один
-результат. **Build Score** всегда заново читает обе кривые, создаёт свежий ряд
-и материал, квантует его и лишь затем добавляет динамику, вилочки, штрихи,
-текстовые ремарки и темп. Поэтому Build можно нажимать повторно даже без
-предварительного Generate.
+- `max/` - the main patch, the compositional engine, the audition voice, and
+  movement profiles;
+- `research/notes/{english,deutsch,russian}/` - parallel analytical notes;
+- `research/score/` and `research/texts/` - local research sources when their
+  redistribution status permits inclusion;
+- `docs/` - architecture, runtime checklist, and the trilingual project paper;
+- `tools/` and `tests/` - reproducible build and validation utilities.
 
-## Параметры
-
-| Параметр | Назначение |
-|---|---|
-| Profile | Формальное поведение синтеза op. 10 или одной из пяти пьес |
-| Seed | Полная воспроизводимость результата |
-| Events | Общее число нотных событий, 1–240 |
-| BPM | Темп, используемый и генератором, и `bach.quantize` |
-| Texture density | Соотношение пауз, разреженности и перекрывающихся звучаний |
-| Activity / Time | Длительности и межсобытийные интервалы по форме пьесы |
-| Dynamics / Time | Глобальная драматургия: `x = время`, `y = pppp…fff`; профиль предлагает начальную кривую, пользователь имеет последнее слово |
-| Coherence | Мотивная память, общие длительности и тембровые родства |
-| Metamorphosis | Степень изменения возвращающейся идеи по тембру и регистру |
-| Timbral contrast | Разделение семейств и полихромная несмешанность |
-| Symmetry | Вероятность смещённого соответствия вокруг формальной оси |
-| Silence | Вес пауз и разрывов между короткими группами |
-| Lyrical breath | Протяжённость, внутреннее дыхание и динамическая пластика |
-
-## Что означает «по-веберновски»
-
-Генератор не утверждает, что реконструирует исторического человека. Он
-реализует наблюдаемые композиционные тенденции:
-
-- двенадцатитоновое исчерпание до повторения;
-- ряд-кандидат оценивается по интервальному разнообразию и группам `3 × 4`;
-- узкие хроматические и широкие диссонантные фигуры;
-- центральные тоны и регистровые оси без функциональной тоники;
-- смещённые симметрии вместо буквального зеркала;
-- микро-фразы из `2–6` событий с временным солистом вместо независимых точек;
-- секционная память штриха и техники: художественный режим действует на
-  коротком участке, а не меняется механически на каждой ноте;
-- пять фактурных режимов: соло-линия, передача мотива, эхо, краткий
-  гоморитмический блок и многотембровая тремолирующая педаль;
-- усиленное, но не тотальное тяготение к семействам: деревянные, медь и
-  струнные образуют короткие блоки, затем линия снова передаётся другой краске;
-- выбор инструмента по формальной роли, тембровому родству, контрасту,
-  регистру, зеркальному партнёру и памяти недавних красок;
-- отдельная комфортная полоса каждого инструмента; крайний регистр получает
-  большой штраф и допускается главным образом у формальной оси/кульминации;
-- описанные в исследованиях связи `флейта–челеста`, `арфа–струнные/медь`,
-  `скрипка–глокеншпиль`, `кларнет–альт` как эвристические притяжения;
-- несовпадение динамической, регистровой и событийной кульминаций;
-- профильное угасание, внешний заключительный жест или возврат краски;
-- исполнимость проверяется до нотации: флейта, кларнет, труба, тромбон и
-  глокеншпиль не получают одновременных двойных нот; `mit Dämpfer` разрешён
-  только трубе, тромбону и струнным; `Flatterzunge` — флейте, кларнету и
-  трубе; `pizz.–arco` и `col legno` — только струнным;
-- артикуляция и техника зависят от секции и функции: `staccatissimo`, акценты,
-  portato, tremolo/trill, `Flatterzunge`, `col legno`, `pizz.–arco`,
-  `mit Dämpfer–Dämpfer ab`, `mit Schwammschlägel`;
-- агогика оформляется глобальными score-маркерами и реальными объектами темпа:
-  `zögernd`,
-  `a tempo`, `drängend`, `poco/molto rit.`, `rasch`, `Zeit lassen`;
-- расширенный словарь характера выбирается по роли и не повторяется до
-  исчерпания локального набора: `äußerst zart`, `mit zartestem Ausdruck`,
-  `innig`, `wie ein Hauch`, `kaum hörbar`, `verklingend`, `ausdrucksvoll`,
-  `gesangvoll`, `frei im Vortrag`, `flüchtig`, `deutlich`, `hervortretend`,
-  `heftig bewegt`, `mit Nachdruck` и другие;
-- вилочка существует только внутри одной микро-фразы и ограничена двумя-тремя
-  четвертями; длинные линии через паузы и несколько тактов запрещены;
-- редкая смена размера занимает один такт (`3/4`, `2/4` или `5/8`) и сразу
-  возвращается к `4/4`.
-
-| Профиль | Собственная физиономия |
-|---|---|
-| I | мягкое разреженное дыхание, сурдинные краски, `zögernd–a tempo`, ось и траектория `H/B → Gis/Ab → F` |
-| II | более длинные фразы, `drängend`, всё больше общеритмических блоков, `pp → fff`, ускорение к `rasch` |
-| III | очень медленное резонансное поле E, совмещённые тремоло/трели, `kaum hörbar`, угасание |
-| IV | жест `вверх–вверх–вниз` и обращённый ответ, фон-продление, пауза-ось, `wie ein Hauch` |
-| V | быстрый трёхчастный разгон, плотная вершина, затем `ruhig` и редкий эпилог с `d–es` |
-
-Выбор профиля меняет BPM и обе исходные кривые в интерфейсе, а также размеры
-фраз, вероятность синхронных групп, регистровый риск, педальные поля,
-оркестровочные веса и план агогики. Кривую Dynamics после этого можно свободно
-перерисовать во всём диапазоне `pppp–fff`.
-
-`op. 10` исторически предшествует строгому додекафонному методу. Поэтому ряд
-здесь служит пользовательским материалом и способом контролировать
-двенадцатитоновое поле, а не доказательством серийной техники в оригинале.
-
-Главное ограничение формулируется честно: это не «загрузка сознания» и не
-статистический двойник человека. Persona — объяснимая система предпочтений,
-памяти и редакторских запретов. Команда `trace` движка печатает в Max Console
-причины выбора каждого инструмента.
-
-`bach.score` 0.8.2/0.8.3 содержит внутреннюю модель slur, но не предоставляет
-публичной команды их программного создания. Версия 5 поэтому сохраняет точные
-начала и окончания многозвучных фраз в скрытом slot 25. **Export XML** включает
-эти метаданные, а `tools/add_phrase_slurs.js` превращает их в стандартные
-MusicXML `<slur type="start/stop">`, не трогая ноты, штрихи или динамику.
-
-## Структура проекта
-
-```text
-max/
-  WebernPersona.maxpat             основной patch
-  webernPersonaEngine.js           единое композиционное ядро
-  webern_persona_profiles.json     шесть профилей и статус доказательности
-docs/
-  ARCHITECTURE_RU.md
-  MAX_RUNTIME_CHECKLIST_RU.md
-  PROJECT_DESCRIPTION_EN_DE_RU.pdf
-  WEBERN_PERSONA_PORTRAIT_RU.pdf
-research/
-  score/                 партитура op. 10
-  texts/                 Ройтер, Холоповы, лекции Веберна
-  notes/                 аналитическая модель и карта источников
-tests/                   тестирование Max JavaScript без Max
-tools/                   воспроизводимая сборка, проверка и XML-валидатор
-```
-
-Код и оригинальная документация проекта распространяются по MIT. Внешняя
-партитура и исследовательские PDF сохраняют права своих издателей и авторов;
-см. оговорку в `LICENSE` и `research/README.md`.
-
-## Проверка
+Run the complete static and generative test suite with:
 
 ```sh
 node tools/validate.js
-node tools/check_musicxml.js path/to/export.musicxml
 ```
 
-Первая команда заново собирает патч, проверяет весь граф соединений,
-диапазоны, свежий ряд, микро-фразы, различие пяти пьес, педаль III, профили и
-команды декорации. Вторая проверяет реальный экспорт на наличие партий, нот,
-динамики и вилочек. Текст из annotation-slot 24 экспортируется как MusicXML
-directions.
+## Citation and licence
+
+Authorship and intellectual-property rights in the software, original model,
+and project documentation belong to Dmitrii Shchukin. The work is made
+available under the MIT License; third-party scores and publications retain
+their respective rights. Bibliographic metadata is provided in `CITATION.cff`.

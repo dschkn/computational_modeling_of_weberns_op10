@@ -1,5 +1,6 @@
 {
-  "schemaVersion": 5,
+  "schemaVersion": 6,
+  "copyright": "(c) Dmitrii Shchukin 2026",
   "description": "Movement-specific form, register, phrase, family-cohesion, section-technique, synchronous-block, pedal, meter and global-tempo profiles. Numeric weights are declared generative heuristics; score-observable traits are identified in evidenceNotes.",
   "profiles": [
     {
@@ -79,10 +80,10 @@
       "activity": [[0, 0.12], [0.48, 0.2], [0.72, 0.3], [1, 0.12]],
       "dynamics": [[0, 0.06], [0.58, 0.3], [0.78, 0.42], [1, 0.1]],
       "registerCurve": [[0, 0.58], [0.55, 0.74], [1, 0.56]],
-      "phraseSizes": [3, 4, 4, 5],
+      "phraseSizes": [2, 3, 3, 4],
       "focusPersistence": 0.72,
-      "homorhythmProbability": 0.22,
-      "pedalProbability": 0.58,
+      "homorhythmProbability": 0.14,
+      "pedalProbability": 0.42,
       "pedalVoices": [5, 6, 7, 8, 9, 10],
       "registerRisk": 0.04,
       "centralPath": [4],
