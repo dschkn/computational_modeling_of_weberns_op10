@@ -1,0 +1,22 @@
+THIRD-PARTY NOTICES
+
+Computational Modeling of Webern's Op. 10
+Copyright (c) Dmitrii Shchukin 2026
+
+Max runtime
+-----------
+The standalone is built with Max 8 by Cycling '74 and contains the runtime and
+support components produced by Max's official standalone builder.
+https://cycling74.com/
+
+bach
+----
+bach is an independent project by composers Andrea Agostini and Daniele Ghisi.
+It is free and open-source software licensed under GNU GPL version 3.
+https://www.bachproject.net/
+https://github.com/bachfamily/bach
+
+The exact Max and bach versions used for each binary release must be recorded
+in the accompanying GitHub release notes. Corresponding bach source code must
+be offered from the same release location as the binary distribution.
+

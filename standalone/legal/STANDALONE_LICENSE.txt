@@ -1,0 +1,19 @@
+Computational Modeling of Webern's Op. 10 - standalone distribution
+Copyright (c) Dmitrii Shchukin 2026
+
+The original project source remains available under the MIT License stated at
+the repository root. A compiled standalone incorporates third-party Max runtime
+components and bach components. bach is licensed under GNU GPL version 3.
+Distribution of the compiled application must comply with the applicable Max
+runtime terms and the bach licence, including provision of the corresponding
+bach source from the same release location. The bach project asks users to
+contact its authors regarding commercial use.
+
+Copyright and authorship in Dmitrii Shchukin's original research model,
+software, interface, and documentation remain with Dmitrii Shchukin. This
+notice does not alter ownership or any third-party licence.
+
+The complete GNU GPL version 3 text is available at:
+https://www.gnu.org/licenses/gpl-3.0.txt
+
+No trademark or authorship right is transferred by this licence notice.
