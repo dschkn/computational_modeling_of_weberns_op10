@@ -262,14 +262,19 @@ const profileDocument = JSON.parse(fs.readFileSync(path.join(root, "max", "weber
 if (!profileDocument.profiles || profileDocument.profiles.length !== 6) {
     throw new Error("Expected six research profiles");
 }
-if (profileDocument.schemaVersion !== 6) {
-    throw new Error("Expected section-technique and rhythmic-cell profile schema version 6");
+if (profileDocument.schemaVersion !== 7) {
+    throw new Error("Expected Reutter-informed material-selection profile schema version 7");
 }
 for (const profile of profileDocument.profiles) {
     for (const field of ["baseTempo", "phraseSizes", "focusPersistence", "homorhythmProbability", "registerRisk", "tempoPlan"]) {
         if (profile[field] === undefined) {
             throw new Error(`Profile ${profile.id} is missing ${field}`);
         }
+    }
+    if (!profile.reutterSelection || !Array.isArray(profile.reutterSelection.pitchCells) ||
+            profile.reutterSelection.pitchCells.length < 4 ||
+            !Array.isArray(profile.reutterSelection.toneGroupSizes)) {
+        throw new Error(`Profile ${profile.id} is missing its Reutter material-selection declaration`);
     }
 }
 if (profileDocument.profiles[3].pedalProbability < 0.4 || !profileDocument.profiles[3].pedalVoices) {

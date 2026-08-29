@@ -323,6 +323,49 @@ function testDynamicsAxisIsAuthoritative() {
     assert.strictEqual(events[events.length - 1].dynamicLevel, 8, "top of Dynamics must mean fff");
 }
 
+function testReutterMaterialSelection() {
+    const expectedOpenings = [null, 11, 7, 9, 0, 11];
+    for (let profile = 1; profile <= 5; profile++) {
+        const engine = loadEngine();
+        configureAndGenerate(engine, 2718 + profile, profile, 96);
+        const events = plain(engine.context.generatedEvents);
+        const firstPitchClass = ((events[0].pitchCents / 100) % 12 + 12) % 12;
+        assert.strictEqual(
+            firstPitchClass,
+            expectedOpenings[profile],
+            `movement ${profile} must open in the Reutter-defined central area`
+        );
+
+        const declared = engine.context.profiles[profile].reutterSelection.pitchCells
+            .map((cell) => cell.join(":"));
+        const modeled = events.filter((event) => event.index >= 12 && event.materialCell);
+        assert(modeled.length > 0, `movement ${profile} must use ranked post-aggregate tone groups`);
+        assert(
+            modeled.every((event) => declared.includes(event.materialCell)),
+            `movement ${profile} must draw tone groups only from its declared analytical vocabulary`
+        );
+    }
+
+    const movementIV = loadEngine();
+    configureAndGenerate(movementIV, 404, 4, 72);
+    const ivEvents = plain(movementIV.context.generatedEvents);
+    assert.deepStrictEqual(
+        ivEvents.slice(-2).map((event) => event.pitchClass),
+        [2, 3],
+        "movement IV must close with the externally placed d-es frame"
+    );
+
+    const movementV = loadEngine();
+    configureAndGenerate(movementV, 505, 5, 120);
+    const vEvents = plain(movementV.context.generatedEvents);
+    const epilogue = vEvents.slice(Math.floor(vEvents.length * 0.56));
+    const shortColourCount = epilogue.filter((event) => [5, 6, 10].includes(event.voice)).length;
+    assert(
+        shortColourCount >= Math.floor(epilogue.length * 0.3),
+        "movement V epilogue must favour celesta, harp and violoncello resonance"
+    );
+}
+
 function testSingleEvent() {
     const engine = loadEngine();
     const result = configureAndGenerate(engine, 1, 0, 1);
@@ -378,6 +421,7 @@ testSilenceControl();
 testRegisterDisciplineAndMicroPhrases();
 testMovementIdentityAndPedalField();
 testDynamicsAxisIsAuthoritative();
+testReutterMaterialSelection();
 testShortHairpinsAndGlobalDirections();
 testPlayabilityAndTechniqueGrammar();
 testSectionArticulationAndFamilyBreath();
