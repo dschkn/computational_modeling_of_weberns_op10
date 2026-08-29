@@ -9,7 +9,11 @@ const path = require("path");
 const crypto = require("crypto");
 
 const root = path.resolve(__dirname, "..", "..");
-const buildSource = path.join(root, "standalone", "build-source");
+const buildSources = [
+    path.join(root, "standalone", "build-source"),
+    path.join(root, "standalone", "macos", "build-source"),
+    path.join(root, "standalone", "windows", "build-source")
+];
 
 function assert(condition, message) {
     if (!condition) {
@@ -21,7 +25,7 @@ function hash(filePath) {
     return crypto.createHash("sha256").update(fs.readFileSync(filePath)).digest("hex");
 }
 
-function validateCopiedFiles() {
+function validateCopiedFiles(buildSource) {
     for (const fileName of [
         "WebernVoice.maxpat",
         "webernPersonaEngine.js",
@@ -34,7 +38,7 @@ function validateCopiedFiles() {
     }
 }
 
-function validatePatch() {
+function validatePatch(buildSource) {
     const document = JSON.parse(fs.readFileSync(path.join(buildSource, "WebernCompositionalModel.maxpat"), "utf8"));
     const patcher = document.patcher;
     const config = patcher.boxes.find((entry) => entry.box && entry.box.id === "standalone-config");
@@ -75,7 +79,19 @@ function validateDocumentation() {
     }
 }
 
-validateCopiedFiles();
-validatePatch();
+for (const buildSource of buildSources) {
+    validateCopiedFiles(buildSource);
+    validatePatch(buildSource);
+}
 validateDocumentation();
-process.stdout.write("Standalone source, dependencies, and user guides validated.\n");
+for (const platform of ["macos", "windows"]) {
+    assert(
+        fs.existsSync(path.join(root, "standalone", platform, "README.md")),
+        `Missing ${platform} build instructions.`
+    );
+    assert(
+        fs.existsSync(path.join(root, "standalone", platform, "release", "BUILD_OUTPUT_GOES_HERE.md")),
+        `Missing ${platform} release lane.`
+    );
+}
+process.stdout.write("Shared, macOS and Windows sources, dependencies, and user guides validated.\n");

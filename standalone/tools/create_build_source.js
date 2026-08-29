@@ -14,10 +14,13 @@ const crypto = require("crypto");
 const repositoryRoot = path.resolve(__dirname, "..", "..");
 const sourceRoot = path.join(repositoryRoot, "max");
 const standaloneRoot = path.join(repositoryRoot, "standalone");
-const outputRoot = path.join(standaloneRoot, "build-source");
+const outputRoots = [
+    path.join(standaloneRoot, "build-source"),
+    path.join(standaloneRoot, "macos", "build-source"),
+    path.join(standaloneRoot, "windows", "build-source")
+];
 
 const sourcePatchPath = path.join(sourceRoot, "WebernPersona.maxpat");
-const outputPatchPath = path.join(outputRoot, "WebernCompositionalModel.maxpat");
 
 const copiedFiles = [
     "WebernVoice.maxpat",
@@ -33,10 +36,11 @@ function copy(source, destination) {
     fs.copyFileSync(source, destination);
 }
 
-function buildStandalonePatch() {
+function buildStandalonePatch(outputRoot) {
     const sourceHashBefore = sha256(sourcePatchPath);
     const document = JSON.parse(fs.readFileSync(sourcePatchPath, "utf8"));
     const patcher = document.patcher;
+    const outputPatchPath = path.join(outputRoot, "WebernCompositionalModel.maxpat");
 
     patcher.description = "Computational Modeling of Webern's Op. 10 - standalone application - Copyright (c) Dmitrii Shchukin 2026";
     patcher.toolbarvisible = 0;
@@ -68,24 +72,25 @@ function buildStandalonePatch() {
 }
 
 function main() {
-    fs.mkdirSync(outputRoot, { recursive: true });
-    buildStandalonePatch();
+    for (const outputRoot of outputRoots) {
+        fs.mkdirSync(outputRoot, { recursive: true });
+        buildStandalonePatch(outputRoot);
 
-    for (const fileName of copiedFiles) {
-        copy(path.join(sourceRoot, fileName), path.join(outputRoot, fileName));
+        for (const fileName of copiedFiles) {
+            copy(path.join(sourceRoot, fileName), path.join(outputRoot, fileName));
+        }
+
+        copy(
+            path.join(standaloneRoot, "legal", "STANDALONE_LICENSE.txt"),
+            path.join(outputRoot, "STANDALONE_LICENSE.txt")
+        );
+        copy(
+            path.join(standaloneRoot, "legal", "THIRD_PARTY_NOTICES.txt"),
+            path.join(outputRoot, "THIRD_PARTY_NOTICES.txt")
+        );
+
+        process.stdout.write(`Standalone build source created at ${outputRoot}\n`);
     }
-
-    copy(
-        path.join(standaloneRoot, "legal", "STANDALONE_LICENSE.txt"),
-        path.join(outputRoot, "STANDALONE_LICENSE.txt")
-    );
-    copy(
-        path.join(standaloneRoot, "legal", "THIRD_PARTY_NOTICES.txt"),
-        path.join(outputRoot, "THIRD_PARTY_NOTICES.txt")
-    );
-
-    process.stdout.write(`Standalone build source created at ${outputRoot}\n`);
 }
 
 main();
-

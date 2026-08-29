@@ -2,6 +2,13 @@
 
 Copyright (c) Dmitrii Shchukin 2026
 
+![Anton Webern and fragments of the generative Max patch](../docs/webern-op10-hero.jpg)
+
+| Platform | Build source | Final portable release |
+| --- | --- | --- |
+| macOS | `macos/build-source/` | `macos/release/WebernCompositionalModel-macOS-universal.zip` |
+| Windows | `windows/build-source/` | `windows/release/WebernCompositionalModel-Windows-x64.exe` |
+
 ## English
 
 This directory prepares **Computational Modeling of Webern's Op. 10** for two
@@ -21,6 +28,8 @@ build.
 
 See `BUILDING_EN_DE_RU.md` for the exact handoff procedure. The `guides/`
 directory contains end-user instructions in English, German, and Russian.
+Platform-specific short instructions are in `macos/README.md` and
+`windows/README.md`.
 
 ## Deutsch
 
@@ -57,4 +66,3 @@ Anleitungen auf Englisch, Deutsch und Russisch befinden sich in `guides/`.
 
 Точная процедура сборки приведена в `BUILDING_EN_DE_RU.md`. Пользовательские
 инструкции на английском, немецком и русском находятся в `guides/`.
-
