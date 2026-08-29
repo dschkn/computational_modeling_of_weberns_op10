@@ -111,6 +111,56 @@ var TIMBRAL_AFFINITIES = {
     "9:10": 0.82
 };
 
+/*
+ * Material-selection priorities derived from Hans Peter Reutter's analysis of
+ * op. 10. They rank candidates; they do not replace the row shown by the UI,
+ * the first aggregate, or any existing orchestration and notation pass.
+ * Offsets in pitchCells are transposition-invariant pitch-class patterns.
+ */
+var REUTTER_MATERIAL = {
+    "op10-synthesis": {
+        toneGroupSizes: [2, 3, 3, 3, 4],
+        pitchCells: [[0, 2, 1], [0, 10, 11], [0, 5, 4], [0, 7, 8]],
+        centralPath: []
+    },
+    "op10-i": {
+        openingPitchClass: 11,
+        toneGroupSizes: [2, 3, 3, 3, 4],
+        pitchCells: [[0, 2, 1], [0, 10, 11], [0, 5, 4], [0, 7, 8]],
+        centralPath: [11, 8, 5],
+        closurePitchClass: 5
+    },
+    "op10-ii": {
+        openingPitchClass: 7,
+        toneGroupSizes: [3, 4, 4, 5, 6],
+        pitchCells: [[0, 2, 1, 5], [0, 10, 11, 6], [0, 5, 4, 9], [0, 7, 8, 3]],
+        centralPath: [7, 8, 0, 4, 7]
+    },
+    "op10-iii": {
+        openingPitchClass: 9,
+        toneGroupSizes: [2, 3, 3, 4],
+        pitchCells: [[0, 5, 9], [0, 7, 3], [0, 6, 11], [0, 5, 8, 2]],
+        centralPath: [9, 2, 9],
+        focalPitchClass: 9
+    },
+    "op10-iv": {
+        openingPitchClass: 0,
+        toneGroupSizes: [2, 3, 3, 3],
+        pitchCells: [[0, 2, 1], [0, 10, 11], [0, 5, 4], [0, 7, 8]],
+        centralPath: [9, 8],
+        closurePitchClasses: [2, 3]
+    },
+    "op10-v": {
+        openingPitchClass: 11,
+        toneGroupSizes: [3, 3, 4, 4, 5],
+        pitchCells: [[0, 7, 10], [0, 5, 2], [0, 3, 8], [0, 9, 4], [0, 2, 1]],
+        centralPath: [11, 5, 9, 2, 8, 9],
+        closurePitchClasses: [2, 3],
+        epilogueStart: 0.56,
+        epilogueVoices: [5, 6, 10]
+    }
+};
+
 var FALLBACK_PROFILES = [
     { id: "op10-synthesis", baseTempo: 60, activity: [[0, 0.28], [0.42, 0.48], [0.7, 0.34], [1, 0.22]], dynamics: [[0, 0.18], [0.55, 0.46], [0.76, 0.34], [1, 0.2]], registerCurve: [[0, 0.34], [0.45, 0.64], [1, 0.32]], phraseSizes: [2, 3, 3, 4], focusPersistence: 0.68, homorhythmProbability: 0.14, pedalProbability: 0.08, registerRisk: 0.08, centralPath: [], formalAxis: 0.58, symmetryStrength: 0.58, axisVoices: [3, 4], initialMarking: "ruhig, zart", tempoPlan: [[0, 1, "ruhig"], [0.58, 0.9, "zögernd"], [0.72, 1, "a tempo"]], closure: "external" },
     { id: "op10-i", baseTempo: 50, activity: [[0, 0.2], [0.44, 0.48], [0.63, 0.42], [1, 0.12]], dynamics: [[0, 0.08], [0.5, 0.25], [1, 0.1]], registerCurve: [[0, 0.36], [0.5, 0.7], [1, 0.34]], phraseSizes: [2, 3, 3, 4], focusPersistence: 0.74, homorhythmProbability: 0.1, pedalProbability: 0.05, registerRisk: 0.05, centralPath: [11, 8, 5], openingVoices: [1, 6, 9], formalAxis: 0.5, symmetryStrength: 0.95, axisVoices: [3, 4], focalPitchClass: 8, focalVoices: [5], initialMarking: "Sehr ruhig und zart", tempoPlan: [[0, 1, "Sehr ruhig"], [0.46, 0.84, "zögernd"], [0.58, 1, "a tempo"]], closurePitchClass: 5, closure: "timbral-palindrome-and-tritone" },
@@ -327,8 +377,9 @@ function buildEvents(row, profileData) {
         // installs a characteristic default curve in the UI; user edits then
         // remain authoritative instead of being silently profile-limited.
         var dynamicValue = interpolate(config.dynamicPoints, t);
-        var pitchClass = (i >= 12 && groupPlan.texture === "pedal-tremolo" && profileData.focalPitchClass !== undefined) ?
-            profileData.focalPitchClass : pitchClassForEvent(row, profileData, i, t);
+        var material = materialForProfile(profileData);
+        var pitchClass = (i >= 12 && groupPlan.texture === "pedal-tremolo" && material.focalPitchClass !== undefined) ?
+            material.focalPitchClass : pitchClassForEvent(row, profileData, i, t, groupPlan, groupInfo);
         var role = formalRole(profileData, t, groupInfo, pitchClass);
         var breathPhase = (groupPosition + 1) / (groupSize + 1);
         if (dynamicValue > 0.08 && dynamicValue < 0.92) {
@@ -380,6 +431,7 @@ function buildEvents(row, profileData) {
             groupSize: groupSize,
             groupTexture: groupPlan.texture,
             rhythmSignature: groupPlan.rhythmSignature,
+            materialCell: groupPlan.materialCell ? groupPlan.materialCell.join(":") : "",
             phraseFocus: groupPlan.focusVoice,
             sectionIndex: groupPlan.sectionStyle.index,
             technique: groupPlan.sectionStyle.techniques[voice],
@@ -475,7 +527,8 @@ function buildSectionPlans(profileData) {
 }
 
 function chooseGroupSize(profileData, t) {
-    var options = profileData.phraseSizes || [2, 3, 3, 4];
+    var material = materialForProfile(profileData);
+    var options = material.toneGroupSizes || profileData.phraseSizes || [2, 3, 3, 4];
     if (profileData.id === "op10-v" && t > 0.8) {
         options = [1, 2, 2, 3];
     } else if (profileData.id === "op10-ii" && t > 0.72) {
@@ -684,7 +737,8 @@ function formalRole(profileData, t, groupInfo, pitchClass) {
     if (Math.abs(t - axis) < 0.045) {
         return "axis";
     }
-    if (profileData.focalPitchClass !== undefined && pitchClass === profileData.focalPitchClass) {
+    var material = materialForProfile(profileData);
+    if (material.focalPitchClass !== undefined && pitchClass === material.focalPitchClass) {
         return "pedal";
     }
     if (groupInfo.position === 0) {
@@ -702,7 +756,7 @@ function chooseRow() {
 
     for (var attempt = 0; attempt < 128; attempt++) {
         var candidate = shuffle([0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
-        var candidateScore = scoreRow(candidate);
+        var candidateScore = scoreRow(candidate, activeProfile());
         if (candidateScore > bestScore) {
             best = candidate;
             bestScore = candidateScore;
@@ -711,7 +765,7 @@ function chooseRow() {
     return best;
 }
 
-function scoreRow(row) {
+function scoreRow(row, profileData) {
     var intervalClasses = {};
     var score = 0;
     var previousInterval = -1;
@@ -751,11 +805,28 @@ function scoreRow(row) {
         if ((first <= 2 && second >= 3) || (second <= 2 && first >= 3)) {
             score += 2.5;
         }
+        score += materialCellScore(row, groupStart, materialForProfile(profileData).pitchCells || []);
     }
     return score;
 }
 
-function pitchClassForEvent(row, profileData, eventIndex, t) {
+function materialCellScore(row, start, cells) {
+    if (!cells || cells.length === 0 || start + 2 >= row.length) { return 0; }
+    var bestCost = 99;
+    for (var cellIndex = 0; cellIndex < cells.length; cellIndex++) {
+        var cell = cells[cellIndex];
+        var limit = Math.min(3, cell.length, row.length - start);
+        var cost = 0;
+        for (var position = 1; position < limit; position++) {
+            var actual = mod(row[start + position] - row[start], 12);
+            cost += shortestDistance(actual, mod(cell[position], 12));
+        }
+        bestCost = Math.min(bestCost, cost);
+    }
+    return Math.max(0, 8 - bestCost * 1.75);
+}
+
+function pitchClassForEvent(row, profileData, eventIndex, t, groupPlan, groupInfo) {
     /* The displayed row is literally the first aggregate heard in the score. */
     if (eventIndex < 12) {
         return row[eventIndex];
@@ -766,21 +837,37 @@ function pitchClassForEvent(row, profileData, eventIndex, t) {
     var localIndex = mod(eventIndex, 12);
     var transposition = 0;
 
-    if (profileData.centralPath && profileData.centralPath.length > 0) {
-        var centralIndex = Math.min(profileData.centralPath.length - 1, Math.floor(t * profileData.centralPath.length));
-        var target = profileData.centralPath[centralIndex];
+    var material = materialForProfile(profileData);
+    var centralPath = material.centralPath || [];
+    if (centralPath.length > 0) {
+        var centralIndex = Math.min(centralPath.length - 1, Math.floor(t * centralPath.length));
+        var target = centralPath[centralIndex];
         transposition = mod(target - form[0], 12);
     } else {
         transposition = mod(cycle * 5, 12);
     }
-    return mod(form[localIndex] + transposition, 12);
+    var basePitchClass = mod(form[localIndex] + transposition, 12);
+    var cells = material.pitchCells || [];
+    if (groupPlan && groupInfo && cells.length > 0) {
+        if (!groupPlan.materialCell) {
+            groupPlan.materialCell = cells[Math.floor(random01() * cells.length)].slice(0);
+            groupPlan.materialCellStart = groupInfo.position;
+            groupPlan.materialAnchor = basePitchClass;
+        }
+        var relativePosition = groupInfo.position - groupPlan.materialCellStart;
+        if (relativePosition >= 0 && relativePosition < groupPlan.materialCell.length) {
+            return mod(groupPlan.materialAnchor + groupPlan.materialCell[relativePosition], 12);
+        }
+    }
+    return basePitchClass;
 }
 
 function normalizeRowForProfile(row, profileData) {
-    if (profileData.id !== "op10-i") {
+    var openingPitchClass = materialForProfile(profileData).openingPitchClass;
+    if (openingPitchClass === undefined) {
         return row;
     }
-    var transposition = mod(11 - row[0], 12);
+    var transposition = mod(openingPitchClass - row[0], 12);
     var normalized = [];
     for (var i = 0; i < row.length; i++) {
         normalized.push(mod(row[i] + transposition, 12));
@@ -840,6 +927,7 @@ function chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex, ro
 
     var weights = [];
     var reasons = [];
+    var material = materialForProfile(profileData);
     for (var voice = 1; voice <= INSTRUMENTS.length; voice++) {
         var instrument = INSTRUMENTS[voice - 1];
         var weight = 0.35;
@@ -901,6 +989,15 @@ function chooseVoice(previousVoice, recentVoices, profileData, t, eventIndex, ro
         if (profileData.id === "op10-v" && t > 0.78 && (voice === 5 || voice === 6 || voice === 7)) {
             weight *= 1.5;
             voiceReasons.push("epilogue resonance");
+        }
+        if (material.epilogueStart !== undefined && t >= material.epilogueStart && material.epilogueVoices) {
+            if (material.epilogueVoices.indexOf(voice) >= 0) {
+                weight *= 2.1;
+                voiceReasons.push("Reutter epilogue colour reduction");
+            } else if (voice <= 4 || voice === 7) {
+                weight *= 0.42;
+                voiceReasons.push("epilogue colour economy");
+            }
         }
         weights.push(weight);
         reasons.push(voiceReasons);
@@ -1196,13 +1293,14 @@ function applyClosures(events, profileData) {
         return;
     }
 
-    if (profileData.closurePitchClass !== undefined) {
-        forcePitchClass(events[events.length - 1], profileData.closurePitchClass);
+    var material = materialForProfile(profileData);
+    if (material.closurePitchClass !== undefined) {
+        forcePitchClass(events[events.length - 1], material.closurePitchClass);
         events[events.length - 1].decisionReason += "; profile closure pitch";
     }
-    if (profileData.closurePitchClasses && events.length >= 2) {
-        forcePitchClass(events[events.length - 2], profileData.closurePitchClasses[0]);
-        forcePitchClass(events[events.length - 1], profileData.closurePitchClasses[1]);
+    if (material.closurePitchClasses && events.length >= 2) {
+        forcePitchClass(events[events.length - 2], material.closurePitchClasses[0]);
+        forcePitchClass(events[events.length - 1], material.closurePitchClasses[1]);
     }
     if (profileData.id === "op10-iv" && events.length > 2) {
         events[events.length - 1].voice = events[0].voice;
@@ -1655,6 +1753,22 @@ function loadProfiles() {
 
 function activeProfile() {
     return profiles[clamp(config.profileIndex, 0, profiles.length - 1)];
+}
+
+function materialForProfile(profileData) {
+    var base = REUTTER_MATERIAL[profileData && profileData.id] || REUTTER_MATERIAL["op10-synthesis"];
+    if (!profileData || !profileData.reutterSelection) { return base; }
+    var result = {};
+    var key;
+    for (key in base) {
+        if (base.hasOwnProperty(key)) { result[key] = base[key]; }
+    }
+    for (key in profileData.reutterSelection) {
+        if (profileData.reutterSelection.hasOwnProperty(key)) {
+            result[key] = profileData.reutterSelection[key];
+        }
+    }
+    return result;
 }
 
 function weightedIndex(weights) {
